@@ -44,3 +44,6 @@ next-env.d.ts
 /.agents
 /.claude
 /skills-lock.json
+
+# dados de migração (one-shot, contêm informações de clientes/colaboradores)
+/scripts/data/

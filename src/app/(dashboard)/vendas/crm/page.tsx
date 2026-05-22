@@ -7,22 +7,27 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { Plus, MoreHorizontal, Edit2, Phone } from 'lucide-react'
+import { Plus, MoreHorizontal, Edit2, Phone, RefreshCw } from 'lucide-react'
 import { ClienteForm } from '@/components/vendas/cliente-form'
 import { getClientes, getVendedores, getEtapasFunil, updateCliente } from '@/app/actions/vendas-actions'
 import type { Cliente, Vendedor, EtapaFunil } from '@/types/vendas'
 import { formatPhone, cn } from '@/lib/utils'
 
-const STATUS_DOT: Record<string, string> = {
-  APROVADO:                   'bg-[var(--brand)]',
-  VENDA_FECHADA:              'bg-[var(--brand)]',
-  REPROVADO:                  'bg-rose-500',
-  CONDICIONADO:               'bg-amber-500',
-  QV_LIBERACAO_REAVALIAR:     'bg-violet-500',
-  PRECISA_CARTA_CANCELAMENTO: 'bg-orange-500',
-  NAO_AVALIADO:               'bg-slate-400',
-  NOVO_LEAD:                  'bg-[var(--brand-bright)]',
+// Hex de cada etapa do funil CRM — usado pra colorir borda, badge e header da coluna.
+// VENDA_FECHADA usa azul-brand (regra "nunca verde"), ignorando o #22c55e que vem do banco.
+const STATUS_HEX: Record<string, string> = {
+  NOVO_LEAD:       '#2F55F2', // brand-bright
+  CONTATO_INICIAL: '#06B6D4', // cyan
+  DOCUMENTACAO:    '#8B5CF6', // violet
+  AVALIACAO:       '#F59E0B', // amber
+  SIMULACAO:       '#14B8A6', // teal
+  VISITA:          '#EC4899', // pink
+  ASSINATURA_DOCS: '#6366F1', // indigo
+  CONFORMIDADE:    '#64748B', // slate
+  VENDA_FECHADA:   '#14224F', // brand (dark navy)
 }
+
+const CARDS_LIMIT_PER_COLUMN = 30
 
 export default function CRMPage() {
   const [etapas, setEtapas] = useState<EtapaFunil[]>([])
@@ -34,13 +39,14 @@ export default function CRMPage() {
   const [defaultStatus, setDefaultStatus] = useState<string>('NOVO_LEAD')
   const [dragging, setDragging] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [etapasData, clientesData, vendedoresData] = await Promise.all([
         getEtapasFunil(),
-        getClientes({ per_page: 500 }),
+        getClientes({ per_page: 2000 }),
         getVendedores(true),
       ])
       setEtapas(etapasData)
@@ -53,8 +59,9 @@ export default function CRMPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Filtra pela etapa do CRM (clientes.status), NÃO confundir com status_novo (avaliação).
   function getClientesPorEtapa(chave: string) {
-    return clientes.filter(c => (c.status_novo ?? 'NAO_AVALIADO') === chave)
+    return clientes.filter(c => (c.status ?? 'NOVO_LEAD') === chave)
   }
 
   function openCreate(chave: string) {
@@ -74,12 +81,13 @@ export default function CRMPage() {
     loadData()
   }
 
+  // Drag-drop muda APENAS o status (CRM/funil). status_novo (avaliação) é domínio diferente.
   async function handleDrop(chave: string, clienteId: string) {
     if (!clienteId) return
     const cliente = clientes.find(c => c.id === clienteId)
-    if (!cliente || cliente.status_novo === chave) return
-    setClientes(prev => prev.map(c => c.id === clienteId ? { ...c, status_novo: chave, status: chave } : c))
-    await updateCliente(clienteId, { status_novo: chave, status: chave })
+    if (!cliente || cliente.status === chave) return
+    setClientes(prev => prev.map(c => c.id === clienteId ? { ...c, status: chave } : c))
+    await updateCliente(clienteId, { status: chave })
   }
 
   return (
@@ -88,9 +96,22 @@ export default function CRMPage() {
         eyebrow="Vendas"
         title="CRM — Funil de Vendas"
         subtitle="Arraste os cartões para mover entre etapas"
+        actions={
+          <Button
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+            aria-label="Atualizar"
+            className="h-11 cursor-pointer rounded-2xl border-[var(--line)] px-4"
+          >
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} strokeWidth={2.2} />
+          </Button>
+        }
       />
 
-      <div className="flex-1 overflow-x-auto">
+      {/* Kanban com altura fixa: a página não rola, cada coluna scrolla internamente.
+          Isso libera o scroll horizontal do conjunto e mantém a UI calma. */}
+      <div className="h-[calc(100vh-160px)] overflow-x-auto overflow-y-hidden">
         {loading ? (
           <div className="flex min-w-max gap-4 p-6">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -101,16 +122,20 @@ export default function CRMPage() {
             ))}
           </div>
         ) : (
-          <div className="flex min-w-max items-start gap-4 p-6">
+          <div className="flex h-full min-w-max items-stretch gap-4 p-6">
             {etapas.map((etapa) => {
-              const items = getClientesPorEtapa(etapa.chave)
-              const dot = STATUS_DOT[etapa.chave] ?? 'bg-slate-400'
+              const allItems = getClientesPorEtapa(etapa.chave)
+              const isExpanded = expanded.has(etapa.chave)
+              const items = isExpanded ? allItems : allItems.slice(0, CARDS_LIMIT_PER_COLUMN)
+              const hidden = allItems.length - items.length
+              const color = STATUS_HEX[etapa.chave] ?? '#94a3b8'
               const isOver = dragOver === etapa.chave
 
               return (
                 <div
                   key={etapa.id}
-                  className="flex w-72 shrink-0 flex-col gap-2.5"
+                  className="flex w-72 shrink-0 flex-col rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-sm"
+                  style={{ borderTopWidth: '3px', borderTopColor: color }}
                   onDragOver={e => { e.preventDefault(); setDragOver(etapa.chave) }}
                   onDragLeave={() => setDragOver(prev => prev === etapa.chave ? null : prev)}
                   onDrop={e => {
@@ -120,12 +145,17 @@ export default function CRMPage() {
                   }}
                 >
                   {/* Column header */}
-                  <div className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3 shadow-sm">
+                  <div
+                    className="flex items-center justify-between border-b border-[var(--line)] px-3.5 py-3"
+                    style={{ backgroundColor: `${color}0F` }}
+                  >
                     <div className="flex items-center gap-2">
-                      <span className={cn('h-2 w-2 rounded-full', dot)} />
                       <span className="text-sm font-semibold text-[var(--ink)]">{etapa.nome}</span>
-                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--paper)] px-1.5 text-[11px] font-bold text-[var(--ink-soft)] ring-1 ring-inset ring-[var(--line)]">
-                        {items.length}
+                      <span
+                        className="grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold tabular-nums"
+                        style={{ backgroundColor: `${color}1F`, color }}
+                      >
+                        {allItems.length}
                       </span>
                     </div>
                     <button
@@ -137,11 +167,11 @@ export default function CRMPage() {
                     </button>
                   </div>
 
-                  {/* Cards */}
+                  {/* Cards (scroll interno) */}
                   <div
                     className={cn(
-                      'min-h-[80px] space-y-2.5 rounded-2xl transition-colors',
-                      isOver && 'bg-[var(--brand-tint)] ring-2 ring-inset ring-[var(--brand-bright)]/25'
+                      'flex-1 space-y-2.5 overflow-y-auto p-2.5 transition-colors',
+                      isOver && 'bg-[var(--brand-tint)]/40 ring-2 ring-inset ring-[var(--brand-bright)]/25'
                     )}
                   >
                     {items.map((c) => (
@@ -151,7 +181,7 @@ export default function CRMPage() {
                         onDragStart={e => { e.dataTransfer.setData('clienteId', c.id); setDragging(c.id) }}
                         onDragEnd={() => setDragging(null)}
                         className={cn(
-                          'cursor-grab rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 shadow-sm transition-all duration-200 active:cursor-grabbing',
+                          'cursor-grab rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm transition-all duration-200 active:cursor-grabbing',
                           'hover:-translate-y-0.5 hover:border-[var(--brand-bright)]/30 hover:shadow-md',
                           dragging === c.id && 'rotate-1 opacity-50'
                         )}
@@ -212,9 +242,31 @@ export default function CRMPage() {
                     ))}
 
                     {items.length === 0 && (
-                      <div className="flex h-16 items-center justify-center rounded-2xl border-2 border-dashed border-[var(--line)] text-xs text-[var(--ink-faint)]">
+                      <div className="flex h-16 items-center justify-center rounded-xl border-2 border-dashed border-[var(--line)] text-xs text-[var(--ink-faint)]">
                         Solte aqui
                       </div>
+                    )}
+
+                    {hidden > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(prev => new Set(prev).add(etapa.chave))}
+                        className="w-full cursor-pointer rounded-xl border border-dashed border-[var(--line)] py-2 text-xs font-semibold text-[var(--ink-soft)] transition-colors hover:border-[var(--brand-bright)]/40 hover:bg-[var(--brand-tint)]/40 hover:text-[var(--brand-bright)]"
+                      >
+                        Ver mais {hidden} {hidden === 1 ? 'cliente' : 'clientes'}
+                      </button>
+                    )}
+
+                    {isExpanded && allItems.length > CARDS_LIMIT_PER_COLUMN && (
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(prev => {
+                          const next = new Set(prev); next.delete(etapa.chave); return next
+                        })}
+                        className="w-full cursor-pointer rounded-xl py-2 text-xs font-semibold text-[var(--ink-faint)] transition-colors hover:text-[var(--ink-soft)]"
+                      >
+                        Recolher
+                      </button>
                     )}
                   </div>
                 </div>

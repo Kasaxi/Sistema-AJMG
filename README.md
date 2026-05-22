@@ -1,4 +1,14 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Sistema de gestão empresarial — Next.js 16 + Supabase.
+
+> **Fonte de verdade do banco:** Supabase (projeto `zxcgrbuemohtjgwbwhhw`).
+> O banco antigo no **Neon** está em processo de descomissionamento — ver [`docs/MIGRATION_NEON_TO_SUPABASE.md`](docs/MIGRATION_NEON_TO_SUPABASE.md) para o runbook de migração.
+
+## Documentação principal
+
+- [`docs/MIGRATION_NEON_TO_SUPABASE.md`](docs/MIGRATION_NEON_TO_SUPABASE.md) — passo-a-passo da migração Neon → Supabase (uma vez só)
+- [`supabase/schema.sql`](supabase/schema.sql) — schema inicial (DDL + RLS + seed)
+- [`supabase/migrations/`](supabase/migrations) — migrations numeradas (fonte de verdade do schema atual)
+- [`AGENTS.md`](AGENTS.md) — instruções para agentes de IA neste repositório
 
 ## Getting Started
 

@@ -71,42 +71,64 @@ export interface LeadDistribuicao {
 
 export interface ClienteFilters {
   search?: string
+  // CRM funnel stage (clientes.status) — usado em outras partes; não exposto nos filtros da lista
   status?: string
+  // Avaliação por tipo de imóvel
+  status_novo?: string
+  status_usado?: string
   vendedor_id?: string
   tipo_imovel?: TipoImovel
   tipo_renda?: TipoRenda
   tipo_cliente?: TipoCliente
   cidade?: string
+  // Range em data_avaliacao (YYYY-MM-DD)
+  data_inicio?: string
+  data_fim?: string
   mes?: string
   page?: number
   per_page?: number
 }
 
+// Etapas do funil de CRM (clientes.status) — pipeline de vendas.
+// Mantemos um superset para tolerar valores legados que aparecem nos dados.
 export const STATUS_LABELS: Record<string, string> = {
   NOVO_LEAD: 'Novo Lead',
+  CONTATO_INICIAL: 'Contato Inicial',
+  DOCUMENTACAO: 'Documentação',
+  AVALIACAO: 'Avaliação',
+  SIMULACAO: 'Simulação',
+  VISITA: 'Visita',
+  ASSINATURA_DOCS: 'Assinatura Docs',
+  CONFORMIDADE: 'Conformidade',
+  VENDA_FECHADA: 'Venda Fechada',
+}
+
+// Status de AVALIAÇÃO por tipo de imóvel (clientes.status_novo / clientes.status_usado).
+// Domínio DIFERENTE do CRM acima — não misturar. Os dois conjuntos compartilham algumas
+// palavras (Aprovado, Reprovado, etc) mas representam conceitos distintos.
+export const AVALIACAO_LABELS: Record<string, string> = {
   NAO_AVALIADO: 'Não Avaliado',
+  EM_ANALISE: 'Em Análise',
   APROVADO: 'Aprovado',
   REPROVADO: 'Reprovado',
   CONDICIONADO: 'Condicionado',
   QV_LIBERACAO_REAVALIAR: 'QV/Lib. Reavaliar',
   PRECISA_CARTA_CANCELAMENTO: 'Carta Cancelamento',
   VENDA_FECHADA: 'Venda Fechada',
+  DESISTENCIA: 'Desistência',
+  TOKEN: 'Token',
 }
 
 export const REPROVACAO_MOTIVOS = [
-  'Renda insuficiente',
-  'Score baixo',
-  'Nome negativado',
-  'Documentação incompleta',
-  'Comprometimento de renda',
-  'Idade limite',
-  'Outro',
+  'Rating mínimo não obtido (verificar manual)',
+  'Margem financeira comprometida (Caixa/outros bancos)',
+  'Margem comprometida + restrição externa',
+  'Outro (especificar nas observações)',
 ]
 
 export const CONDICIONADO_MOTIVOS = [
-  'Aguardando documentos',
-  'Aguardando comprovante de renda',
-  'Aguardando regularização de CPF',
-  'Aguardando carta de cancelamento',
-  'Outro',
+  'Dívidas baixadas como Prejuízo (SCR)',
+  'Margem insuficiente (recomendar adequação)',
+  'Pendência interna (procurar agência)',
+  'Outro (especificar nas observações)',
 ]

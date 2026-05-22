@@ -1,0 +1,6 @@
+# Dumps e exports brutos do Neon ficam aqui, FORA do git.
+# Estes arquivos contêm hashes de senha (bcrypt) e dados sensíveis de clientes.
+
+*
+!.gitignore
+!README.md

@@ -6,18 +6,20 @@ import { cn } from '@/lib/utils'
 import {
   Building2, Users, LayoutDashboard, UserCheck, BarChart3,
   DollarSign, Clock, AlertTriangle, ChevronDown, ChevronRight,
-  LogOut, Settings, Menu, X
+  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { getCurrentProfile } from '@/app/actions/vendas-actions'
+import { profileHasModule, type CurrentProfile } from '@/lib/permissions'
 
 interface NavItem {
   label: string
   href: string
   icon: React.ElementType
   adminOnly?: boolean
+  exact?: boolean   // se true, só ativa em match exato (sem startsWith)
 }
 
 interface NavModule {
@@ -25,6 +27,7 @@ interface NavModule {
   icon: React.ElementType
   items: NavItem[]
   enabled: boolean
+  moduloKey: string // chave em acesso_modulos / VENDAS
 }
 
 const modules: NavModule[] = [
@@ -32,17 +35,48 @@ const modules: NavModule[] = [
     label: 'Vendas',
     icon: UserCheck,
     enabled: true,
+    moduloKey: 'VENDAS',
     items: [
       { label: 'Clientes', href: '/vendas/clientes', icon: Users },
       { label: 'CRM / Funil', href: '/vendas/crm', icon: LayoutDashboard },
+      { label: 'Financeiro', href: '/vendas/financeiro', icon: DollarSign },
       { label: 'Vendedores', href: '/vendas/vendedores', icon: UserCheck, adminOnly: true },
       { label: 'Dashboard', href: '/vendas/dashboard', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Agenda',
+    icon: Calendar,
+    enabled: true,
+    moduloKey: 'AGENDA',
+    items: [
+      { label: 'Visão geral', href: '/agenda', icon: Calendar, exact: true },
+      { label: 'Tarefas', href: '/agenda/tarefas', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Obras',
+    icon: Hammer,
+    enabled: false,
+    moduloKey: 'OBRAS',
+    items: [
+      { label: 'Empreendimentos', href: '/obras', icon: Hammer },
+    ],
+  },
+  {
+    label: 'Compras',
+    icon: ShoppingCart,
+    enabled: false,
+    moduloKey: 'COMPRAS',
+    items: [
+      { label: 'Lançamentos', href: '/compras', icon: ShoppingCart },
     ],
   },
   {
     label: 'Financeiro',
     icon: DollarSign,
     enabled: false,
+    moduloKey: 'FINANCEIRO',
     items: [
       { label: 'Lançamentos', href: '/financeiro/lancamentos', icon: DollarSign },
       { label: 'DRE', href: '/financeiro/dre', icon: BarChart3 },
@@ -52,18 +86,20 @@ const modules: NavModule[] = [
     label: 'RH / Ponto',
     icon: Clock,
     enabled: false,
+    moduloKey: 'RH',
     items: [
       { label: 'Funcionários', href: '/ponto/funcionarios', icon: Users },
       { label: 'Espelho de Ponto', href: '/ponto/espelho', icon: Clock },
     ],
   },
   {
-    label: 'Inadimplência',
+    label: 'Cobrança',
     icon: AlertTriangle,
     enabled: false,
+    moduloKey: 'COBRANCA',
     items: [
-      { label: 'Clientes', href: '/inadimplencia/clientes', icon: Users },
-      { label: 'Notificações', href: '/inadimplencia/notificacoes', icon: AlertTriangle },
+      { label: 'Clientes', href: '/cobranca/clientes', icon: Users },
+      { label: 'Notificações', href: '/cobranca/notificacoes', icon: AlertTriangle },
     ],
   },
 ]
@@ -72,15 +108,22 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
   const [openModules, setOpenModules] = useState<string[]>(['Vendas'])
-  const [role, setRole] = useState<'ADMIN' | 'VENDEDOR' | null>(null)
+  const [profile, setProfile] = useState<CurrentProfile | null>(null)
 
   useEffect(() => {
     getCurrentProfile()
-      .then(p => setRole(p.role))
-      .catch(() => setRole('VENDEDOR'))
+      .then(setProfile)
+      .catch(() => setProfile(null))
   }, [])
 
-  const isAdmin = role === 'ADMIN'
+  const isAdmin = profile?.role === 'ADMIN'
+  const visibleModules = profile
+    ? modules.filter(m => m.enabled && profileHasModule(profile, m.moduloKey))
+    : []
+  const disabledModulesForAdmin = isAdmin
+    ? modules.filter(m => !m.enabled)
+    : []
+  const renderModules = [...visibleModules, ...disabledModulesForAdmin]
 
   function toggleModule(label: string) {
     setOpenModules(prev =>
@@ -119,7 +162,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {modules.map((mod) => {
+        {renderModules.map((mod) => {
           const isOpen = openModules.includes(mod.label)
           const ModIcon = mod.icon
           const hasActiveChild = mod.items.some(item => pathname.startsWith(item.href))
@@ -162,7 +205,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <div className="mt-1 space-y-0.5 pl-3.5">
                   {mod.items.filter(item => !item.adminOnly || isAdmin).map((item) => {
                     const ItemIcon = item.icon
-                    const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                    const isActive = item.exact
+                      ? pathname === item.href
+                      : pathname === item.href || pathname.startsWith(item.href + '/')
                     return (
                       <Link
                         key={item.href}
