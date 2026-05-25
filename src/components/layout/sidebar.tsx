@@ -50,17 +50,16 @@ const modules: NavModule[] = [
     enabled: true,
     moduloKey: 'AGENDA',
     items: [
-      { label: 'Visão geral', href: '/agenda', icon: Calendar, exact: true },
-      { label: 'Tarefas', href: '/agenda/tarefas', icon: LayoutDashboard },
+      { label: 'Visão geral', href: '/agenda', icon: Calendar },
     ],
   },
   {
     label: 'Obras',
     icon: Hammer,
-    enabled: false,
+    enabled: true,
     moduloKey: 'OBRAS',
     items: [
-      { label: 'Empreendimentos', href: '/obras', icon: Hammer },
+      { label: 'Empreendimentos', href: '/obras', icon: Hammer, exact: true },
     ],
   },
   {

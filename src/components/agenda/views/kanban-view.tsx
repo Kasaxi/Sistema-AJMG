@@ -213,9 +213,9 @@ function KanbanCard({ item, onClick, onDragStart, onDragEnd, isDragging, onDragO
   const atrasada = isAtrasada(item)
   const concluida = item.status === 'CONCLUIDO'
 
-  // Enquanto draggando, esconde completamente (collapsed) — sem placeholder preso.
+  // Enquanto draggando, vira placeholder com a mesma altura do card (h-44 = 11rem).
   if (isDragging) {
-    return null
+    return <div className="h-44 rounded-xl border-2 border-dashed border-[var(--brand-bright)]/40 bg-[var(--brand-tint)]/30" />
   }
 
   return (
@@ -227,24 +227,24 @@ function KanbanCard({ item, onClick, onDragStart, onDragEnd, isDragging, onDragO
       onDrop={(e) => onDrop(e, item)}
       onClick={() => onClick(item)}
       className={cn(
-        'group cursor-grab rounded-xl border border-[var(--line)] bg-white p-3 transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm active:cursor-grabbing',
+        'group flex h-44 cursor-grab flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white p-3 transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm active:cursor-grabbing',
         concluida && 'opacity-60',
       )}
     >
       <div className="flex items-start gap-2">
-        <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', PRIORIDADE_DOT[item.prioridade])} />
-        <h4 className={cn('flex-1 text-sm font-semibold leading-tight text-[var(--ink)]', concluida && 'line-through')}>
+        <span className={cn('mt-2.5 h-2.5 w-2.5 shrink-0 rounded-full', PRIORIDADE_DOT[item.prioridade])} />
+        <h4 className={cn('line-clamp-2 flex-1 text-[17px] font-semibold leading-snug text-[var(--ink)]', concluida && 'line-through')}>
           {item.titulo}
         </h4>
       </div>
 
       {item.descricao && (
-        <p className="mt-1.5 line-clamp-3 whitespace-pre-line pl-4 text-[11px] leading-snug text-[var(--ink-soft)]">
+        <p className="mt-2 line-clamp-2 whitespace-pre-line pl-5 text-[14px] leading-snug text-[var(--ink-soft)]">
           {item.descricao}
         </p>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px]">
+      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-2 text-[13px]">
         <span className="inline-flex items-center gap-1 text-[var(--ink-soft)]">
           <Calendar className="h-3 w-3" /> {formatDataCurta(item.data)}
         </span>
@@ -264,15 +264,15 @@ function KanbanCard({ item, onClick, onDragStart, onDragEnd, isDragging, onDragO
           </span>
         )}
         {atrasada && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
-            <AlertCircle className="h-2.5 w-2.5" /> Atrasada
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[12px] font-semibold text-rose-700">
+            <AlertCircle className="h-3 w-3" /> Atrasada
           </span>
         )}
       </div>
 
       {item.categoria?.nome && (
         <span
-          className="mt-2 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+          className="mt-2 inline-block rounded-full px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider"
           style={{
             backgroundColor: item.categoria.cor ? `${item.categoria.cor}1A` : 'var(--brand-tint)',
             color: item.categoria.cor ?? 'var(--brand-bright)',

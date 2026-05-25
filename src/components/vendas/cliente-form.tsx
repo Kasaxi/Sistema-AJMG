@@ -113,8 +113,8 @@ function MotivoSelect({
       <Label className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
         {label}
       </Label>
-      <Select value={value} onValueChange={v => onChange(v ?? '')}>
-        <SelectTrigger className="h-10 rounded-xl">
+      <Select key={status} value={value} onValueChange={v => onChange(v ?? '')}>
+        <SelectTrigger className="h-10 w-full rounded-xl">
           <SelectValue placeholder="Selecione um motivo…">
             {(v: string | null) => v ?? 'Selecione um motivo…'}
           </SelectValue>
@@ -169,7 +169,18 @@ export function ClienteForm({ open, onClose, vendedores, initialData, defaultVen
   }, [open])
 
   function set(key: string, value: string) {
-    setForm(prev => ({ ...prev, [key]: value }))
+    setForm(prev => {
+      const next = { ...prev, [key]: value }
+      // Coerência: motivo só faz sentido quando status é REPROVADO ou CONDICIONADO.
+      // Ao mudar status pra outro valor, limpa o motivo correspondente.
+      if (key === 'status_novo' && value !== 'REPROVADO' && value !== 'CONDICIONADO') {
+        next.motivo_reprovacao = ''
+      }
+      if (key === 'status_usado' && value !== 'REPROVADO' && value !== 'CONDICIONADO') {
+        next.motivo_reprovacao_usado = ''
+      }
+      return next
+    })
   }
 
   async function handleSubmit(e: React.FormEvent) {

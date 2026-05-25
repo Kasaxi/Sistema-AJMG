@@ -432,14 +432,26 @@ async function fetchDashboardSlice(
   }
 }
 
+// Status considerados "avaliação finalizada" no KPI Total Avaliações.
+// Exclui status intermediários (EM_ANALISE, PRECISA_CARTA_CANCELAMENTO,
+// QV_LIBERACAO_REAVALIAR, TOKEN, NAO_AVALIADO, NOVO_LEAD) que ainda estão em
+// andamento. Mantém compatibilidade com a definição do sistema antigo.
+const STATUS_FINALIZADOS = new Set([
+  'APROVADO', 'REPROVADO', 'CONDICIONADO', 'DESISTENCIA', 'VENDA_FECHADA',
+])
+
 function aggregateDashboard(clientes: ClienteSlice[], leads: LeadDistSlice[]) {
   const leads_enviados = leads.reduce((s, l) => s + (l.quantidade ?? 0), 0)
   const total_avaliacoes = clientes.filter(c =>
-    (c.status_novo && c.status_novo !== 'NAO_AVALIADO') ||
-    (c.status_usado && c.status_usado !== 'NAO_AVALIADO')
+    STATUS_FINALIZADOS.has(c.status_novo ?? '') ||
+    STATUS_FINALIZADOS.has(c.status_usado ?? '')
   ).length
   const vendas_fechadas = clientes.filter(c => c.valor_venda != null && c.data_venda != null).length
-  const aprovados = clientes.filter(c => c.status_novo === 'APROVADO' || c.status_usado === 'APROVADO').length
+  // Aprovados inclui quem fechou venda (era aprovado antes de virar venda fechada).
+  const aprovados = clientes.filter(c =>
+    c.status_novo === 'APROVADO' || c.status_usado === 'APROVADO' ||
+    c.status_novo === 'VENDA_FECHADA' || c.status_usado === 'VENDA_FECHADA'
+  ).length
   const condicionados = clientes.filter(c => c.status_novo === 'CONDICIONADO' || c.status_usado === 'CONDICIONADO').length
   const reprovados = clientes.filter(c => c.status_novo === 'REPROVADO' || c.status_usado === 'REPROVADO').length
 
@@ -527,6 +539,9 @@ export async function getDashboardData(filtros: DashboardFilters = {}) {
   const evolucao_diaria = [...dayMap.values()].sort((a, b) => a.data.localeCompare(b.data))
 
   // Análise de Motivos — Reprovação e Condicionamento, com breakdown NOVO/USADO.
+  // Clientes com status mas SEM motivo preenchido entram como "Não especificado"
+  // (espelha o comportamento do dashboard antigo do Neon).
+  const NAO_ESPECIFICADO = 'Não especificado'
   function motivosDe(filterStatus: string) {
     const map = new Map<string, { motivo: string; total: number; novo: number; usado: number; clienteIds: Set<string> }>()
     const get = (m: string) => {
@@ -534,22 +549,27 @@ export async function getDashboardData(filtros: DashboardFilters = {}) {
       return map.get(m)!
     }
     for (const c of clientes) {
-      const isNovoMatch = c.status_novo === filterStatus && c.motivo_reprovacao
-      const isUsadoMatch = c.status_usado === filterStatus && c.motivo_reprovacao_usado
-      if (isNovoMatch) {
-        const r = get(c.motivo_reprovacao!)
+      if (c.status_novo === filterStatus) {
+        const motivo = c.motivo_reprovacao?.trim() || NAO_ESPECIFICADO
+        const r = get(motivo)
         r.novo++
         r.clienteIds.add(c.id)
       }
-      if (isUsadoMatch) {
-        const r = get(c.motivo_reprovacao_usado!)
+      if (c.status_usado === filterStatus) {
+        const motivo = c.motivo_reprovacao_usado?.trim() || NAO_ESPECIFICADO
+        const r = get(motivo)
         r.usado++
         r.clienteIds.add(c.id)
       }
     }
     return [...map.values()]
       .map(r => ({ motivo: r.motivo, total: r.clienteIds.size, novo: r.novo, usado: r.usado }))
-      .sort((a, b) => b.total - a.total)
+      .sort((a, b) => {
+        // "Não especificado" no fim sempre, independente do total
+        if (a.motivo === NAO_ESPECIFICADO) return 1
+        if (b.motivo === NAO_ESPECIFICADO) return -1
+        return b.total - a.total
+      })
   }
   const motivos_reprovacao = motivosDe('REPROVADO')
   const motivos_condicionamento = motivosDe('CONDICIONADO')

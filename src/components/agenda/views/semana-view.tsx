@@ -115,16 +115,13 @@ export function SemanaView({ referencia, onReferenciaChange, itens, loading, onI
             return (
               <div
                 key={dia.iso}
+                onClick={() => onDayClick(dia.iso)}
                 className={cn(
-                  'flex min-h-[16rem] flex-col bg-white',
-                  dia.isToday && 'bg-[var(--brand-tint)]/20',
+                  'group flex min-h-[16rem] cursor-pointer flex-col bg-white transition-colors hover:bg-[var(--paper)]/40',
+                  dia.isToday && 'bg-[var(--brand-tint)]/20 hover:bg-[var(--brand-tint)]/30',
                 )}
               >
-                <button
-                  type="button"
-                  onClick={() => onDayClick(dia.iso)}
-                  className="group flex items-center justify-between border-b border-[var(--line)] px-3 py-2 text-left"
-                >
+                <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--ink-faint)]">{DIAS[idx]}</p>
                     <p className={cn(
@@ -134,9 +131,9 @@ export function SemanaView({ referencia, onReferenciaChange, itens, loading, onI
                       {dia.date.getDate()}
                     </p>
                   </div>
-                  <Plus className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-50" />
-                </button>
-                <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto p-2">
+                  <Plus className="h-3.5 w-3.5 text-[var(--ink-faint)] opacity-0 transition-opacity group-hover:opacity-100" />
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5 p-2">
                   {items.length === 0 ? (
                     <p className="px-1 pt-2 text-[11px] text-[var(--ink-faint)]">—</p>
                   ) : (
@@ -144,7 +141,7 @@ export function SemanaView({ referencia, onReferenciaChange, itens, loading, onI
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => onItemClick(item)}
+                        onClick={(e) => { e.stopPropagation(); onItemClick(item) }}
                         className={cn(
                           'cursor-pointer rounded-lg border border-[var(--line)] bg-white p-2 text-left transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm',
                           item.status === 'CONCLUIDO' && 'opacity-50',

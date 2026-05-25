@@ -8,6 +8,7 @@ import { TaskModal } from '@/components/agenda/task-modal'
 import { MesView } from '@/components/agenda/views/mes-view'
 import { KanbanView } from '@/components/agenda/views/kanban-view'
 import { SemanaView } from '@/components/agenda/views/semana-view'
+import { ListaView } from '@/components/agenda/views/lista-view'
 import { FiltroUsuario, EU, TODOS } from '@/components/agenda/filtro-usuario'
 import type { AgendaItem, AgendaStatus, CategoriaAgenda } from '@/types/agenda'
 import {
@@ -18,12 +19,13 @@ import { getCurrentProfile } from '@/app/actions/vendas-actions'
 import type { CurrentProfile } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 
-type View = 'MES' | 'SEMANA' | 'KANBAN'
+type View = 'KANBAN' | 'MES' | 'SEMANA' | 'LISTA'
 
 const VIEWS: { id: View; label: string; icon: React.ElementType }[] = [
   { id: 'KANBAN', label: 'Kanban', icon: LayoutGrid },
   { id: 'MES',    label: 'Mês',    icon: CalendarDays },
   { id: 'SEMANA', label: 'Semana', icon: CalendarRange },
+  { id: 'LISTA',  label: 'Lista',  icon: ListChecks },
 ]
 
 function inicioFimMes(year: number, month: number) {
@@ -212,37 +214,28 @@ export default function AgendaPage() {
       />
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8">
-        {/* Tabs de view + link pra lista */}
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <div className="inline-flex overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-1">
-            {VIEWS.map(v => {
-              const isActive = view === v.id
-              const Icon = v.icon
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setView(v.id)}
-                  className={cn(
-                    'inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-1.5 text-sm font-semibold transition-all',
-                    isActive
-                      ? 'bg-white text-[var(--ink)] shadow-sm ring-1 ring-inset ring-[var(--line)]'
-                      : 'text-[var(--ink-soft)] hover:text-[var(--ink)]',
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {v.label}
-                </button>
-              )
-            })}
-          </div>
-          <a
-            href="/agenda/tarefas"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-3 text-sm font-semibold text-[var(--ink-soft)] transition-all hover:text-[var(--ink)]"
-          >
-            <ListChecks className="h-4 w-4" />
-            Lista
-          </a>
+        {/* Tabs de view */}
+        <div className="mb-5 inline-flex overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--paper)] p-1">
+          {VIEWS.map(v => {
+            const isActive = view === v.id
+            const Icon = v.icon
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setView(v.id)}
+                className={cn(
+                  'inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-1.5 text-sm font-semibold transition-all',
+                  isActive
+                    ? 'bg-white text-[var(--ink)] shadow-sm ring-1 ring-inset ring-[var(--line)]'
+                    : 'text-[var(--ink-soft)] hover:text-[var(--ink)]',
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {v.label}
+              </button>
+            )
+          })}
         </div>
 
         {view === 'MES' && (
@@ -272,6 +265,12 @@ export default function AgendaPage() {
             onItemClick={abrirEdicao}
             onStatusChange={handleStatusChange}
             onReorder={handleReorder}
+          />
+        )}
+        {view === 'LISTA' && (
+          <ListaView
+            paraUsuario={filtroUsuario === TODOS ? 'ALL' : filtroUsuario === EU ? undefined : filtroUsuario}
+            onItemClick={abrirEdicao}
           />
         )}
       </div>

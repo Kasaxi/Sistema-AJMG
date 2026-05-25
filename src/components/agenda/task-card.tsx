@@ -48,10 +48,18 @@ export function TaskCard({ item, onClick, onToggleStatus, pending }: TaskCardPro
   const feitasSub = item.subtarefas?.filter(s => s.concluida).length ?? 0
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onClick(item)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick(item)
+        }
+      }}
       className={cn(
-        'group w-full cursor-pointer rounded-2xl border border-[var(--line)] bg-white p-4 text-left transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm',
+        'group w-full cursor-pointer rounded-2xl border border-[var(--line)] bg-white p-4 text-left transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40',
         (concluida || cancelada) && 'opacity-60',
       )}
     >
@@ -145,6 +153,6 @@ export function TaskCard({ item, onClick, onToggleStatus, pending }: TaskCardPro
           </div>
         </div>
       </div>
-    </button>
+    </div>
   )
 }
