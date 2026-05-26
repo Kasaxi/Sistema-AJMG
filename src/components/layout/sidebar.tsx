@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   Building2, Users, LayoutDashboard, UserCheck, BarChart3,
   DollarSign, Clock, AlertTriangle, ChevronDown, ChevronRight,
-  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart
+  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -65,10 +65,11 @@ const modules: NavModule[] = [
   {
     label: 'Compras',
     icon: ShoppingCart,
-    enabled: false,
+    enabled: true,
     moduloKey: 'COMPRAS',
     items: [
-      { label: 'Lançamentos', href: '/compras', icon: ShoppingCart },
+      { label: 'Orçamentos',   href: '/compras/cotacoes',     icon: FileText,  adminOnly: true },
+      { label: 'Fornecedores', href: '/compras/fornecedores', icon: Building2 },
     ],
   },
   {
@@ -162,8 +163,35 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {renderModules.map((mod) => {
-          const isOpen = openModules.includes(mod.label)
           const ModIcon = mod.icon
+          const visibleItems = mod.items.filter(item => !item.adminOnly || isAdmin)
+
+          // Módulo habilitado com 1 sub-item visível → vira link direto
+          if (mod.enabled && visibleItems.length === 1) {
+            const item = visibleItems[0]
+            const isActive = item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link
+                key={mod.label}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200',
+                  isActive
+                    ? 'bg-[var(--brand-bright)] text-white shadow-lg shadow-[var(--brand-bright)]/25'
+                    : 'text-white/60 hover:bg-white/[0.04] hover:text-white',
+                )}
+              >
+                <ModIcon className="h-[1.05rem] w-[1.05rem] shrink-0" strokeWidth={2.2} />
+                <span className="flex-1 text-left">{mod.label}</span>
+              </Link>
+            )
+          }
+
+          // Caso contrário: grupo expandível (ou desabilitado)
+          const isOpen = openModules.includes(mod.label)
           const hasActiveChild = mod.items.some(item => pathname.startsWith(item.href))
 
           return (
@@ -202,7 +230,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
               {mod.enabled && isOpen && (
                 <div className="mt-1 space-y-0.5 pl-3.5">
-                  {mod.items.filter(item => !item.adminOnly || isAdmin).map((item) => {
+                  {visibleItems.map((item) => {
                     const ItemIcon = item.icon
                     const isActive = item.exact
                       ? pathname === item.href

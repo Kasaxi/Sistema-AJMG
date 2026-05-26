@@ -36,6 +36,35 @@ export async function listFornecedores(opts: { ativosApenas?: boolean } = {}): P
   return (data ?? []) as Fornecedor[]
 }
 
+/** Lista fornecedores com contagem e valor total dos gastos vinculados. */
+export async function listFornecedoresComResumo(): Promise<(Fornecedor & {
+  total_gastos: number
+  qtd_lancamentos: number
+})[]> {
+  const { supabase } = await requireUser()
+  const [fornRes, gastosRes] = await Promise.all([
+    supabase.from('fornecedores').select('*').order('nome', { ascending: true }),
+    supabase.from('gastos').select('fornecedor_id, valor_total'),
+  ])
+  if (fornRes.error) throw new Error(fornRes.error.message)
+  if (gastosRes.error) throw new Error(gastosRes.error.message)
+
+  type GastoSlice = { fornecedor_id: string | null; valor_total: number | null }
+  const stats = new Map<string, { total: number; qtd: number }>()
+  for (const g of (gastosRes.data ?? []) as GastoSlice[]) {
+    if (!g.fornecedor_id) continue
+    const cur = stats.get(g.fornecedor_id) ?? { total: 0, qtd: 0 }
+    cur.total += Number(g.valor_total ?? 0)
+    cur.qtd += 1
+    stats.set(g.fornecedor_id, cur)
+  }
+
+  return (fornRes.data ?? []).map(f => {
+    const s = stats.get(f.id as string) ?? { total: 0, qtd: 0 }
+    return { ...(f as Fornecedor), total_gastos: s.total, qtd_lancamentos: s.qtd }
+  })
+}
+
 export async function createFornecedor(input: FornecedorInput): Promise<Fornecedor> {
   const { supabase } = await requireUser()
   const { data, error } = await supabase
@@ -122,7 +151,9 @@ export async function listGastos(
   let q = supabase.from('gastos').select(GASTO_SELECT, { count: 'exact' })
 
   if (filters.obra_id)       q = q.eq('obra_id', filters.obra_id)
-  if (filters.categoria_id)  q = q.eq('categoria_id', filters.categoria_id)
+  if (filters.categoria_ids && filters.categoria_ids.length > 0) {
+    q = q.in('categoria_id', filters.categoria_ids)
+  }
   if (filters.fornecedor_id) q = q.eq('fornecedor_id', filters.fornecedor_id)
   if (filters.data_inicio)   q = q.gte('data', filters.data_inicio)
   if (filters.data_fim)      q = q.lte('data', filters.data_fim)
@@ -130,7 +161,12 @@ export async function listGastos(
     q = q.or(`descricao.ilike.%${filters.search}%,observacoes.ilike.%${filters.search}%`)
   }
 
-  q = q.order('data', { ascending: false }).order('created_at', { ascending: false }).range(from, to)
+  const sortBy = filters.sort_by ?? 'data'
+  const sortDir = filters.sort_dir ?? 'desc'
+  q = q.order(sortBy, { ascending: sortDir === 'asc' })
+  // Tiebreakers estáveis pra paginação consistente
+  if (sortBy !== 'data') q = q.order('data', { ascending: false })
+  q = q.order('created_at', { ascending: false }).range(from, to)
 
   const { data, error, count } = await q
   if (error) throw new Error(error.message)
@@ -194,6 +230,11 @@ export interface ResumoGastosObra {
   totalLancamentos: number
   porCategoria: { categoria_id: string; nome: string; cor: string | null; total: number; count: number }[]
   porMes: { mes: string; total: number }[]
+  porMesCategoria: {
+    mes: string
+    total: number
+    categorias: { categoria_id: string; nome: string; cor: string | null; total: number; count: number }[]
+  }[]
   topFornecedores: { fornecedor_id: string; nome: string; total: number; count: number }[]
 }
 
@@ -224,20 +265,30 @@ export async function getResumoGastosObra(obraId: string): Promise<ResumoGastosO
   const catMap = new Map<string, { categoria_id: string; nome: string; cor: string | null; total: number; count: number }>()
   const mesMap = new Map<string, number>()
   const fornMap = new Map<string, { fornecedor_id: string; nome: string; total: number; count: number }>()
+  // mes → categoria_id → agregado
+  const mesCatMap = new Map<string, Map<string, { categoria_id: string; nome: string; cor: string | null; total: number; count: number }>>()
 
   for (const r of rows) {
     const v = Number(r.valor_total) || 0
     total += v
-    // categoria
+    const mes = r.data.slice(0, 7)
+    // categoria (geral)
     if (r.categoria) {
       const cur = catMap.get(r.categoria_id) ?? {
         categoria_id: r.categoria_id, nome: r.categoria.nome, cor: r.categoria.cor, total: 0, count: 0,
       }
       cur.total += v; cur.count += 1
       catMap.set(r.categoria_id, cur)
+      // categoria por mês
+      if (!mesCatMap.has(mes)) mesCatMap.set(mes, new Map())
+      const catMapDoMes = mesCatMap.get(mes)!
+      const curMc = catMapDoMes.get(r.categoria_id) ?? {
+        categoria_id: r.categoria_id, nome: r.categoria.nome, cor: r.categoria.cor, total: 0, count: 0,
+      }
+      curMc.total += v; curMc.count += 1
+      catMapDoMes.set(r.categoria_id, curMc)
     }
     // mês (YYYY-MM)
-    const mes = r.data.slice(0, 7)
     mesMap.set(mes, (mesMap.get(mes) ?? 0) + v)
     // fornecedor
     if (r.fornecedor_id && r.fornecedor) {
@@ -249,11 +300,20 @@ export async function getResumoGastosObra(obraId: string): Promise<ResumoGastosO
     }
   }
 
+  const porMesCategoria = [...mesCatMap.entries()]
+    .map(([mes, m]) => ({
+      mes,
+      total: mesMap.get(mes) ?? 0,
+      categorias: [...m.values()].sort((a, b) => b.total - a.total),
+    }))
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+
   return {
     total,
     totalLancamentos: rows.length,
     porCategoria: [...catMap.values()].sort((a, b) => b.total - a.total),
     porMes: [...mesMap.entries()].map(([mes, total]) => ({ mes, total })).sort((a, b) => a.mes.localeCompare(b.mes)),
+    porMesCategoria,
     topFornecedores: [...fornMap.values()].sort((a, b) => b.total - a.total).slice(0, 10),
   }
 }

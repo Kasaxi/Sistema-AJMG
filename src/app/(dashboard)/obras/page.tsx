@@ -6,20 +6,11 @@ import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Search, MapPin, CalendarDays, Wallet, Hammer } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { ObraForm } from '@/components/obras/obra-form'
-import { listObras } from '@/app/actions/obras-actions'
-import type { Obra, ObraStatus } from '@/types/obras'
-import { OBRA_STATUS_LABELS } from '@/types/obras'
+import { listObrasComResumo } from '@/app/actions/obras-actions'
+import type { Obra, ObraComResumo, ObraStatus } from '@/types/obras'
 import { cn } from '@/lib/utils'
-
-// Cores por status — alinhadas com o DESIGN.md (paleta restrita)
-const STATUS_STYLE: Record<ObraStatus, string> = {
-  PLANEJAMENTO: 'bg-[var(--paper)] text-[var(--ink-soft)]',
-  EM_ANDAMENTO: 'bg-[var(--brand-tint)] text-[var(--brand-bright)]',
-  PAUSADA:      'bg-amber-50 text-amber-700',
-  CONCLUIDA:    'bg-emerald-50 text-emerald-700',
-}
 
 const STATUS_FILTERS: { id: 'ALL' | ObraStatus; label: string }[] = [
   { id: 'ALL',          label: 'Todas' },
@@ -29,31 +20,56 @@ const STATUS_FILTERS: { id: 'ALL' | ObraStatus; label: string }[] = [
   { id: 'CONCLUIDA',    label: 'Concluídas' },
 ]
 
-function formatBRL(n: number | null) {
-  if (n == null) return null
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+function formatBRL(n: number) {
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return null
+function formatMesAno(iso: string) {
+  const [y, m] = iso.split('-')
+  return `${MESES[Number(m) - 1]} ${y}`
+}
+
+function formatDateBR(iso: string) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
 }
 
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function daysBetween(startISO: string, endISO: string): number {
+  const start = Date.parse(startISO)
+  const end = Date.parse(endISO)
+  return Math.floor((end - start) / 86_400_000)
+}
+
+// "QD 55" → { sigla: "QD", numero: "55" }
+// "QD 151 — Parque Alvorada I" → { sigla: "QD", numero: "151" }
+// "Casa do João" → { sigla: "OBRA", numero: "CJ" }
+function parseIdentidade(nome: string): { sigla: string; numero: string } {
+  const m = nome.match(/^([A-Za-zÀ-ú]{1,6})\s+(\d{1,4})/)
+  if (m) return { sigla: m[1].toUpperCase(), numero: m[2] }
+  const palavras = nome.trim().split(/\s+/).slice(0, 2)
+  const iniciais = palavras.map(p => p[0]).join('').toUpperCase()
+  return { sigla: 'OBRA', numero: iniciais || '??' }
+}
+
 export default function ObrasPage() {
   const router = useRouter()
-  const [obras, setObras] = useState<Obra[]>([])
+  const [obras, setObras] = useState<ObraComResumo[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'ALL' | ObraStatus>('ALL')
 
   const [modalOpen, setModalOpen] = useState(false)
-  const [editando, setEditando] = useState<Obra | null>(null)
 
   const carregar = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await listObras()
+      const data = await listObrasComResumo()
       setObras(data)
     } finally {
       setLoading(false)
@@ -75,14 +91,15 @@ export default function ObrasPage() {
     return true
   })
 
-  function abrirNova() {
-    setEditando(null)
-    setModalOpen(true)
-  }
+  // No filtro "Todas", separamos: ativas em cards, concluídas em lista compacta.
+  // No filtro "Concluídas", todas viram cards completos (são o assunto da tela).
+  const cardsList =
+    filtroStatus === 'ALL' ? filtradas.filter(o => o.status !== 'CONCLUIDA') : filtradas
+  const concluidasCompactas =
+    filtroStatus === 'ALL' ? filtradas.filter(o => o.status === 'CONCLUIDA') : []
 
-  function abrirDetalhe(o: Obra) {
-    router.push(`/obras/${o.id}`)
-  }
+  function abrirNova() { setModalOpen(true) }
+  function abrirDetalhe(o: Obra) { router.push(`/obras/${o.id}`) }
 
   return (
     <>
@@ -131,38 +148,95 @@ export default function ObrasPage() {
           />
         </div>
 
-        {/* Lista */}
+        {/* Cards principais */}
         {loading ? (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+              <Skeleton key={i} className="h-40 w-full rounded-2xl" />
             ))}
           </div>
-        ) : filtradas.length === 0 ? (
+        ) : cardsList.length === 0 && concluidasCompactas.length === 0 ? (
           <EmptyState onCreate={abrirNova} hasBusca={!!busca.trim() || filtroStatus !== 'ALL'} />
         ) : (
-          <div className="space-y-2.5">
-            {filtradas.map(o => (
-              <ObraCard key={o.id} obra={o} onClick={abrirDetalhe} />
-            ))}
-          </div>
+          <>
+            {cardsList.length > 0 && (
+              <div className="space-y-3">
+                {cardsList.map(o => (
+                  <ObraCard key={o.id} obra={o} onClick={abrirDetalhe} />
+                ))}
+              </div>
+            )}
+
+            {concluidasCompactas.length > 0 && (
+              <div className={cn(cardsList.length > 0 && 'mt-10')}>
+                <div className="mb-3 flex items-center gap-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
+                    Concluídas
+                  </p>
+                  <div className="h-px flex-1 bg-[var(--line)]" />
+                </div>
+                <div className="space-y-1.5">
+                  {concluidasCompactas.map(o => (
+                    <ConcluidaRow key={o.id} obra={o} onClick={abrirDetalhe} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       <ObraForm
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        initialData={editando}
+        initialData={null}
         onSaved={carregar}
       />
     </>
   )
 }
 
-function ObraCard({ obra, onClick }: { obra: Obra; onClick: (o: Obra) => void }) {
-  const inicio = formatDate(obra.data_inicio)
-  const previsao = formatDate(obra.data_previsao_entrega)
-  const orcamento = formatBRL(obra.orcamento_previsto)
+function ObraCard({ obra, onClick }: { obra: ObraComResumo; onClick: (o: Obra) => void }) {
+  const ident = parseIdentidade(obra.nome)
+  const today = todayISO()
+
+  const diasExecucao =
+    obra.data_inicio && obra.status === 'EM_ANDAMENTO'
+      ? Math.max(0, daysBetween(obra.data_inicio, today))
+      : null
+
+  // Barra de progresso: tempo decorrido vs prazo (quando ambos existem).
+  let pct: number | null = null
+  if (obra.status === 'CONCLUIDA') {
+    pct = 100
+  } else if (obra.data_inicio && obra.data_previsao_entrega) {
+    const totalDias = daysBetween(obra.data_inicio, obra.data_previsao_entrega)
+    const decorridos = daysBetween(obra.data_inicio, today)
+    if (totalDias > 0) pct = Math.max(0, Math.min(100, (decorridos / totalDias) * 100))
+  }
+
+  const eyebrowText =
+    obra.status === 'EM_ANDAMENTO' && diasExecucao != null
+      ? `Em andamento · ${diasExecucao} ${diasExecucao === 1 ? 'dia' : 'dias'} em execução`
+      : obra.status === 'EM_ANDAMENTO'
+      ? 'Em andamento'
+      : obra.status === 'PLANEJAMENTO'
+      ? 'Em planejamento'
+      : obra.status === 'PAUSADA'
+      ? 'Pausada'
+      : null
+
+  const datasFmt =
+    obra.data_inicio && obra.data_previsao_entrega
+      ? `${formatMesAno(obra.data_inicio)}  →  ${formatMesAno(obra.data_previsao_entrega)}`
+      : obra.data_inicio
+      ? `Início ${formatDateBR(obra.data_inicio)} · sem entrega definida`
+      : obra.data_previsao_entrega
+      ? `Entrega prevista ${formatDateBR(obra.data_previsao_entrega)}`
+      : 'Datas não definidas'
+
+  const local = [obra.endereco, obra.cidade].filter(Boolean).join(' · ')
+  const gastoLabel = obra.status === 'CONCLUIDA' ? 'Gasto total' : 'Gasto até agora'
 
   return (
     <div
@@ -175,52 +249,91 @@ function ObraCard({ obra, onClick }: { obra: Obra; onClick: (o: Obra) => void })
           onClick(obra)
         }
       }}
-      className="group w-full cursor-pointer rounded-2xl border border-[var(--line)] bg-white p-4 text-left transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40"
+      className="group cursor-pointer rounded-2xl border border-[var(--line)] bg-white p-5 transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40 sm:p-6"
     >
-      <div className="flex items-start gap-4">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--brand-tint)] text-[var(--brand-bright)]">
-          <Hammer className="h-5 w-5" />
-        </span>
+      {eyebrowText && (
+        <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--brand-bright)]">
+          {eyebrowText}
+        </p>
+      )}
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start gap-2">
-            <h3 className="min-w-0 flex-1 font-display text-base font-bold leading-tight text-[var(--ink)]">
-              {obra.nome}
-            </h3>
-            <span className={cn(
-              'rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider',
-              STATUS_STYLE[obra.status],
-            )}>
-              {OBRA_STATUS_LABELS[obra.status]}
-            </span>
-          </div>
-
-          {(obra.endereco || obra.cidade) && (
-            <p className="mt-1 inline-flex items-center gap-1 text-sm text-[var(--ink-soft)]">
-              <MapPin className="h-3.5 w-3.5" />
-              {[obra.endereco, obra.cidade].filter(Boolean).join(' — ')}
-            </p>
-          )}
-
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[var(--ink-soft)]">
-            {inicio && (
-              <span className="inline-flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" /> Início {inicio}
-              </span>
-            )}
-            {previsao && (
-              <span className="inline-flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" /> Entrega {previsao}
-              </span>
-            )}
-            {orcamento && (
-              <span className="inline-flex items-center gap-1 font-semibold text-[var(--ink)]">
-                <Wallet className="h-3 w-3 text-[var(--ink-soft)]" /> {orcamento}
-              </span>
-            )}
-          </div>
+      <div className="flex items-start gap-5 sm:gap-7">
+        {/* Identidade (esquerda) */}
+        <div className="shrink-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
+            {ident.sigla}
+          </p>
+          <p className="font-display text-[2rem] font-extrabold leading-none tracking-tight text-[var(--ink)]">
+            {ident.numero}
+          </p>
         </div>
+
+        {/* Conteúdo (centro) */}
+        <div className="min-w-0 flex-1">
+          <h3 className="font-display text-lg font-bold leading-tight text-[var(--ink)]">
+            {obra.nome}
+          </h3>
+          {local && (
+            <p className="mt-0.5 text-sm text-[var(--ink-soft)]">{local}</p>
+          )}
+          <p className="mt-2.5 text-sm text-[var(--ink-soft)]">{datasFmt}</p>
+        </div>
+
+        {/* Financeiro (direita) — só aparece se houver dado */}
+        {obra.totalGasto > 0 && (
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
+              {gastoLabel}
+            </p>
+            <p className="font-display text-lg font-bold leading-tight text-[var(--ink)]">
+              {formatBRL(obra.totalGasto)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--ink-soft)]">
+              {obra.numCompras} {obra.numCompras === 1 ? 'compra' : 'compras'}
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Barra de progresso (hairline-first) */}
+      {pct != null && (
+        <div className="mt-5 h-0.5 w-full overflow-hidden rounded-full bg-[var(--line)]">
+          <div
+            className="h-full rounded-full bg-[var(--ink)] transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ConcluidaRow({ obra, onClick }: { obra: ObraComResumo; onClick: (o: Obra) => void }) {
+  const local = obra.cidade ?? obra.endereco
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onClick(obra)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick(obra)
+        }
+      }}
+      className="group flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--line)] bg-white px-4 py-3 transition-all hover:border-[var(--brand-bright)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-[var(--ink)]">
+          {obra.nome}
+          {local && <span className="font-normal text-[var(--ink-soft)]"> · {local}</span>}
+        </p>
+      </div>
+      <p className="shrink-0 text-xs text-[var(--ink-soft)]">
+        {obra.totalGasto > 0
+          ? `${formatBRL(obra.totalGasto)} · ${obra.numCompras} ${obra.numCompras === 1 ? 'compra' : 'compras'}`
+          : 'sem compras'}
+      </p>
     </div>
   )
 }
@@ -236,10 +349,7 @@ function EmptyState({ onCreate, hasBusca }: { onCreate: () => void; hasBusca: bo
   }
   return (
     <div className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-6 py-12 text-center">
-      <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--brand-tint)] text-[var(--brand-bright)]">
-        <Hammer className="h-6 w-6" />
-      </span>
-      <p className="mt-4 font-display text-base font-semibold text-[var(--ink)]">Nenhuma obra cadastrada</p>
+      <p className="font-display text-base font-semibold text-[var(--ink)]">Nenhuma obra cadastrada</p>
       <p className="mt-1 text-sm text-[var(--ink-soft)]">
         Cadastre o primeiro empreendimento. Compras, RH e Financeiro vão se conectar a ele.
       </p>

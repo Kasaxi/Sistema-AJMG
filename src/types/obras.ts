@@ -14,6 +14,11 @@ export interface Obra {
   updated_at: string
 }
 
+export interface ObraComResumo extends Obra {
+  totalGasto: number
+  numCompras: number
+}
+
 export interface ObraInput {
   nome: string
   endereco?: string | null
