@@ -207,7 +207,11 @@ export interface CotacaoAnexo {
   file_type: AnexoTipo
   size_bytes: number | null
   parsed_status: AnexoParsedStatus
-  parsed_data: { itens?: Array<{ descricao: string; quantidade?: number; unidade?: string; preco_unitario?: number }> } | null
+  parsed_data: {
+    items?: Array<{ descricao: string; quantidade?: number; unidade?: string; preco_unitario?: number; observacoes?: string }>
+    observacoes_gerais?: string
+    prazo_entrega_dias?: number
+  } | null
   parsed_error: string | null
   uploaded_at: string
 }

@@ -1,15 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Plus, Trash2, Send, X as XIcon, Check, CalendarDays, MapPin, AlertCircle,
+  Upload, FileSpreadsheet, FileImage, FileText, Sparkles, Loader2,
 } from 'lucide-react'
-import { submitRespostasPublic, recusarCotacaoPublic } from '@/app/actions/cotacoes-actions'
-import type { CotacaoPublicView, UnidadeMedida } from '@/types/compras'
+import {
+  submitRespostasPublic, recusarCotacaoPublic,
+  uploadCotacaoAnexoPublic, removerCotacaoAnexoPublic,
+} from '@/app/actions/cotacoes-actions'
+import type { CotacaoPublicView, CotacaoAnexo, UnidadeMedida } from '@/types/compras'
 import { cn } from '@/lib/utils'
 
 interface Row {
@@ -70,7 +74,7 @@ function novoExtra(): Row {
 
 export function CotacaoPublicForm({ initialView }: { initialView: CotacaoPublicView }) {
   const router = useRouter()
-  const { cotacao, envelope, itens, respostas, unidades } = initialView
+  const { cotacao, envelope, itens, respostas, unidades, anexos: anexosIniciais } = initialView
 
   // Inicializa rows: se já respondeu, usa respostas; senão, usa itens sugeridos
   const respostasIniciais = respostas.length > 0
@@ -80,13 +84,75 @@ export function CotacaoPublicForm({ initialView }: { initialView: CotacaoPublicV
   const [rows, setRows] = useState<Row[]>(respostasIniciais)
   const [observacoes, setObservacoes] = useState(envelope.observacoes_fornecedor ?? '')
   const [prazoEntrega, setPrazoEntrega] = useState<string>(envelope.prazo_entrega_dias?.toString() ?? '')
+  const [anexos, setAnexos] = useState<CotacaoAnexo[]>(anexosIniciais)
+  const [uploading, setUploading] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [enviadoComSucesso, setEnviadoComSucesso] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [confirmandoRecusa, setConfirmandoRecusa] = useState(false)
   const [motivoRecusa, setMotivoRecusa] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const jaRespondeu = envelope.status === 'RESPONDIDA'
+
+  function tryMatchUnidadeId(sigla?: string): string | null {
+    if (!sigla) return null
+    const s = sigla.toLowerCase().trim().replace(/\.$/, '')
+    return unidades.find(u => u.sigla.toLowerCase() === s)?.id ?? null
+  }
+
+  async function onArquivoEscolhido(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setErro(null)
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('token', envelope.token)
+      fd.append('file', file)
+      const anexo = await uploadCotacaoAnexoPublic(fd)
+      setAnexos(prev => [...prev, anexo])
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Falha no upload.')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function removerAnexo(anexoId: string) {
+    setErro(null)
+    try {
+      await removerCotacaoAnexoPublic({ token: envelope.token, anexo_id: anexoId })
+      setAnexos(prev => prev.filter(a => a.id !== anexoId))
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Falha ao remover.')
+    }
+  }
+
+  function aplicarAnexo(anexo: CotacaoAnexo) {
+    const items = anexo.parsed_data?.items ?? []
+    if (items.length === 0) return
+    const novas: Row[] = items.map(it => ({
+      _id: crypto.randomUUID(),
+      item_id: null,  // entram como extras
+      descricao: it.descricao,
+      quantidade: Number(it.quantidade ?? 1),
+      unidade_id: tryMatchUnidadeId(it.unidade),
+      preco_unitario: it.preco_unitario != null ? String(it.preco_unitario) : '',
+      observacoes: it.observacoes ?? '',
+    }))
+    setRows(prev => [...prev, ...novas])
+    const pd = anexo.parsed_data
+    if (pd?.prazo_entrega_dias && !prazoEntrega) {
+      setPrazoEntrega(String(pd.prazo_entrega_dias))
+    }
+    if (pd?.observacoes_gerais) {
+      setObservacoes(prev =>
+        prev ? `${prev}\n\n${pd.observacoes_gerais}` : pd.observacoes_gerais ?? ''
+      )
+    }
+  }
 
   function updateRow(id: string, patch: Partial<Row>) {
     setRows(prev => prev.map(r => r._id === id ? { ...r, ...patch } : r))
@@ -221,6 +287,67 @@ export function CotacaoPublicForm({ initialView }: { initialView: CotacaoPublicV
           <span>{erro}</span>
         </div>
       )}
+
+      {/* Anexar arquivo (atalho com IA) */}
+      <section className="rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6">
+        <div className="mb-4">
+          <h2 className="inline-flex items-center gap-2 font-display text-base font-bold text-[var(--ink)]">
+            <Sparkles className="h-4 w-4 text-[var(--brand-bright)]" />
+            Anexar orçamento (opcional)
+          </h2>
+          <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
+            Envie PDF, foto ou Excel. A gente lê o arquivo e preenche os itens automaticamente — você só revisa e ajusta.
+          </p>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf,image/*,.xlsx,.xls,.csv"
+          onChange={onArquivoEscolhido}
+          disabled={uploading}
+          className="hidden"
+        />
+
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className={cn(
+            'flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40 disabled:cursor-not-allowed disabled:opacity-60',
+            uploading
+              ? 'border-[var(--brand-bright)]/40 bg-[var(--brand-tint)]/30'
+              : 'border-[var(--line)] hover:border-[var(--brand-bright)]/40 hover:bg-[var(--paper)]/40'
+          )}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--brand-bright)]" />
+              <p className="text-sm font-semibold text-[var(--ink)]">Lendo o arquivo…</p>
+              <p className="text-xs text-[var(--ink-soft)]">PDFs e imagens podem levar até 30s</p>
+            </>
+          ) : (
+            <>
+              <Upload className="h-5 w-5 text-[var(--ink-soft)]" />
+              <p className="text-sm font-semibold text-[var(--ink)]">Clique ou arraste um arquivo</p>
+              <p className="text-xs text-[var(--ink-soft)]">PDF, foto (JPG/PNG/HEIC) ou Excel · até 20 MB</p>
+            </>
+          )}
+        </button>
+
+        {anexos.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {anexos.map(a => (
+              <AnexoRow
+                key={a.id}
+                anexo={a}
+                onAplicar={() => aplicarAnexo(a)}
+                onRemover={() => removerAnexo(a.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Itens */}
       <section className="rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6">
@@ -468,6 +595,87 @@ function RespostaRow({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+function AnexoRow({
+  anexo, onAplicar, onRemover,
+}: {
+  anexo: CotacaoAnexo
+  onAplicar: () => void
+  onRemover: () => void
+}) {
+  const Icon = anexo.file_type === 'PDF' ? FileText
+    : anexo.file_type === 'IMAGEM' ? FileImage
+    : anexo.file_type === 'EXCEL' ? FileSpreadsheet
+    : FileText
+
+  const itemsCount = anexo.parsed_data?.items?.length ?? 0
+  const sizeKb = anexo.size_bytes != null ? Math.round(anexo.size_bytes / 1024) : null
+
+  const statusBadge = (() => {
+    switch (anexo.parsed_status) {
+      case 'OK':
+        return itemsCount > 0
+          ? { label: `${itemsCount} ${itemsCount === 1 ? 'item lido' : 'itens lidos'}`, tone: 'bg-emerald-50 text-emerald-700' }
+          : { label: 'Nada extraído', tone: 'bg-[var(--paper)] text-[var(--ink-soft)]' }
+      case 'PROCESSANDO':
+        return { label: 'Processando', tone: 'bg-[var(--brand-tint)] text-[var(--brand-bright)]' }
+      case 'FALHA':
+        return { label: 'Falha na leitura', tone: 'bg-rose-50 text-rose-700' }
+      case 'PULADO':
+        return { label: 'Sem extração automática', tone: 'bg-[var(--paper)] text-[var(--ink-soft)]' }
+      default:
+        return { label: 'Pendente', tone: 'bg-[var(--paper)] text-[var(--ink-soft)]' }
+    }
+  })()
+
+  return (
+    <div className="rounded-xl border border-[var(--line)] bg-white p-3">
+      <div className="flex items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--paper)] text-[var(--ink-soft)]">
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-semibold text-[var(--ink)]">{anexo.file_name}</p>
+            <span className={cn(
+              'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+              statusBadge.tone,
+            )}>
+              {statusBadge.label}
+            </span>
+          </div>
+          {sizeKb != null && (
+            <p className="mt-0.5 text-xs text-[var(--ink-faint)]">
+              {sizeKb < 1024 ? `${sizeKb} KB` : `${(sizeKb / 1024).toFixed(1)} MB`}
+            </p>
+          )}
+          {anexo.parsed_error && (
+            <p className="mt-1 text-xs text-rose-700">{anexo.parsed_error}</p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {anexo.parsed_status === 'OK' && itemsCount > 0 && (
+            <button
+              type="button"
+              onClick={onAplicar}
+              className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg bg-[var(--ink)] px-2.5 text-xs font-semibold text-white transition-colors hover:bg-[var(--ink-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40"
+            >
+              <Plus className="h-3 w-3" /> Aplicar {itemsCount}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onRemover}
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[var(--ink-faint)] transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40"
+            aria-label="Remover anexo"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   )

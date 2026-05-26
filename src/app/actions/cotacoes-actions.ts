@@ -497,6 +497,109 @@ export async function submitRespostasPublic(input: {
   revalidateCotacoes(envelope.cotacao_id)
 }
 
+/**
+ * Faz upload de um anexo pra cotação do fornecedor (via token público).
+ * Roda extração inline (Excel local ou Claude via OpenRouter) e grava
+ * parsed_data junto. Retorna o registro do anexo já com o resultado.
+ */
+export async function uploadCotacaoAnexoPublic(formData: FormData): Promise<CotacaoAnexo> {
+  const token = String(formData.get('token') ?? '')
+  const file = formData.get('file')
+  if (!token) throw new Error('Token ausente.')
+  if (!(file instanceof File)) throw new Error('Arquivo ausente.')
+
+  // Limites: 20 MB
+  if (file.size > 20 * 1024 * 1024) {
+    throw new Error('Arquivo maior que 20 MB.')
+  }
+
+  const { admin, envelope } = await resolveEnvelopePorToken(token)
+  const cotStatus = (envelope.cotacao as { status: string }).status
+  if (cotStatus === 'FECHADA' || cotStatus === 'CANCELADA') {
+    throw new Error(`Esta cotação está ${cotStatus.toLowerCase()} e não aceita mais anexos.`)
+  }
+
+  const { detectTipoAnexo, extractFromBuffer, sanitizeExtractionError } = await import('@/lib/anexo-extractor')
+  const tipo = detectTipoAnexo(file.type, file.name)
+
+  // 1. Upload pro storage
+  const arrayBuffer = await file.arrayBuffer()
+  const sanitized = file.name.replace(/[^\w.\-]/g, '_').slice(0, 80)
+  const path = `${envelope.id}/${Date.now()}-${sanitized}`
+  const { error: upErr } = await admin.storage
+    .from('cotacao-anexos')
+    .upload(path, arrayBuffer, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    })
+  if (upErr) throw new Error(`Falha no upload: ${upErr.message}`)
+
+  // 2. Insere registro pendente
+  const { data: anexoCriado, error: insErr } = await admin
+    .from('cotacao_anexos')
+    .insert({
+      cotacao_fornecedor_id: envelope.id,
+      file_path: path,
+      file_name: file.name,
+      file_type: tipo,
+      size_bytes: file.size,
+      parsed_status: tipo === 'OUTRO' ? 'PULADO' : 'PROCESSANDO',
+    })
+    .select('*')
+    .single()
+  if (insErr) throw new Error(insErr.message)
+
+  // 3. Extrai (se não for OUTRO)
+  if (tipo === 'OUTRO') {
+    return anexoCriado as unknown as CotacaoAnexo
+  }
+  try {
+    const { resultado } = await extractFromBuffer(arrayBuffer, file.type, file.name)
+    const { data: atualizado, error: updErr } = await admin
+      .from('cotacao_anexos')
+      .update({
+        parsed_status: 'OK',
+        parsed_data: resultado,
+      })
+      .eq('id', anexoCriado.id)
+      .select('*')
+      .single()
+    if (updErr) throw new Error(updErr.message)
+    return atualizado as unknown as CotacaoAnexo
+  } catch (e) {
+    const rawMsg = e instanceof Error ? e.message : 'Erro na extração.'
+    // Loga o erro cru pro admin investigar (server log).
+    // No DB e na UI, mostramos uma versão amigável pro fornecedor.
+    console.error('[cotacoes] Falha na extração de anexo:', rawMsg)
+    const friendlyMsg = sanitizeExtractionError(rawMsg)
+    const { data: comErro } = await admin
+      .from('cotacao_anexos')
+      .update({ parsed_status: 'FALHA', parsed_error: friendlyMsg })
+      .eq('id', anexoCriado.id)
+      .select('*')
+      .single()
+    return (comErro ?? anexoCriado) as unknown as CotacaoAnexo
+  }
+}
+
+export async function removerCotacaoAnexoPublic(input: { token: string; anexo_id: string }): Promise<void> {
+  const { admin, envelope } = await resolveEnvelopePorToken(input.token)
+  // Garante que o anexo pertence ao envelope (segurança)
+  const { data: anexo } = await admin
+    .from('cotacao_anexos')
+    .select('id, file_path, cotacao_fornecedor_id')
+    .eq('id', input.anexo_id)
+    .maybeSingle()
+  if (!anexo || anexo.cotacao_fornecedor_id !== envelope.id) {
+    throw new Error('Anexo não encontrado.')
+  }
+  // Remove do storage (best-effort)
+  await admin.storage.from('cotacao-anexos').remove([anexo.file_path])
+  // Remove o registro
+  const { error } = await admin.from('cotacao_anexos').delete().eq('id', input.anexo_id)
+  if (error) throw new Error(error.message)
+}
+
 export async function recusarCotacaoPublic(token: string, motivo?: string): Promise<void> {
   const { admin, envelope } = await resolveEnvelopePorToken(token)
   const { error } = await admin
