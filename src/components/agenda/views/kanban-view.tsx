@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Clock, MapPin, User, AlertCircle, Calendar } from 'lucide-react'
+import { Clock, MapPin, User, AlertCircle, Calendar, MoreVertical, ArrowRight } from 'lucide-react'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import type { AgendaItem, AgendaStatus, AgendaPrioridade } from '@/types/agenda'
 import { cn } from '@/lib/utils'
 
@@ -187,6 +190,7 @@ export function KanbanView({ itens, loading, onItemClick, onStatusChange, onReor
                       isDragging={draggingId === item.id}
                       onDragOver={onCardDragOver}
                       onDrop={onCardDrop}
+                      onMover={(novoStatus) => onStatusChange(item.id, novoStatus)}
                     />
                   </div>
                 ))
@@ -207,9 +211,11 @@ interface KanbanCardProps {
   isDragging: boolean
   onDragOver: (e: React.DragEvent, item: AgendaItem) => void
   onDrop: (e: React.DragEvent, item: AgendaItem) => void
+  /** Move o card pra outra coluna (caminho touch-friendly, alternativa ao drag) */
+  onMover: (novoStatus: AgendaStatus) => void
 }
 
-function KanbanCard({ item, onClick, onDragStart, onDragEnd, isDragging, onDragOver, onDrop }: KanbanCardProps) {
+function KanbanCard({ item, onClick, onDragStart, onDragEnd, isDragging, onDragOver, onDrop, onMover }: KanbanCardProps) {
   const atrasada = isAtrasada(item)
   const concluida = item.status === 'CONCLUIDO'
 
@@ -220,14 +226,23 @@ function KanbanCard({ item, onClick, onDragStart, onDragEnd, isDragging, onDragO
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={item.titulo}
       draggable
       onDragStart={(e) => onDragStart(e, item)}
       onDragEnd={onDragEnd}
       onDragOver={(e) => onDragOver(e, item)}
       onDrop={(e) => onDrop(e, item)}
       onClick={() => onClick(item)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick(item)
+        }
+      }}
       className={cn(
-        'group flex h-44 cursor-grab flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white p-3 transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm active:cursor-grabbing',
+        'group flex h-44 cursor-grab flex-col overflow-hidden rounded-xl border border-[var(--line)] bg-white p-3 transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40 active:cursor-grabbing',
         concluida && 'opacity-60',
       )}
     >
@@ -236,6 +251,30 @@ function KanbanCard({ item, onClick, onDragStart, onDragEnd, isDragging, onDragO
         <h4 className={cn('line-clamp-2 flex-1 text-[17px] font-semibold leading-snug text-[var(--ink)]', concluida && 'line-through')}>
           {item.titulo}
         </h4>
+
+        {/* Botão "Mover" — alternativa touch ao drag-and-drop */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}
+            aria-label="Mover pra outra coluna"
+            className="-mr-1 -mt-1 grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-[var(--ink-faint)] transition-colors hover:bg-[var(--paper)] hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            {COLUNAS.filter(c => c.status !== item.status).map(c => (
+              <DropdownMenuItem
+                key={c.status}
+                onClick={() => onMover(c.status)}
+                className="cursor-pointer gap-2"
+              >
+                <ArrowRight className="h-4 w-4" />
+                Mover pra {c.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {item.descricao && (

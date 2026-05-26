@@ -143,10 +143,17 @@ export function MesView({ referencia, onReferenciaChange, itens, loading, onItem
                     <span
                       key={item.id}
                       onClick={(e) => { e.stopPropagation(); onItemClick(item) }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          onItemClick(item)
+                        }
+                      }}
                       role="button"
                       tabIndex={0}
                       className={cn(
-                        'truncate rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight',
+                        'cursor-pointer truncate rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40',
                         item.status === 'CONCLUIDO' && 'line-through opacity-50',
                       )}
                       style={{

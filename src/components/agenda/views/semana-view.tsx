@@ -115,9 +115,18 @@ export function SemanaView({ referencia, onReferenciaChange, itens, loading, onI
             return (
               <div
                 key={dia.iso}
+                role="button"
+                tabIndex={0}
+                aria-label={`Adicionar item em ${DIAS[idx]} ${dia.date.getDate()}`}
                 onClick={() => onDayClick(dia.iso)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onDayClick(dia.iso)
+                  }
+                }}
                 className={cn(
-                  'group flex min-h-[16rem] cursor-pointer flex-col bg-white transition-colors hover:bg-[var(--paper)]/40',
+                  'group flex min-h-[16rem] cursor-pointer flex-col bg-white transition-colors hover:bg-[var(--paper)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--brand-bright)]/40',
                   dia.isToday && 'bg-[var(--brand-tint)]/20 hover:bg-[var(--brand-tint)]/30',
                 )}
               >
@@ -143,7 +152,7 @@ export function SemanaView({ referencia, onReferenciaChange, itens, loading, onI
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onItemClick(item) }}
                         className={cn(
-                          'cursor-pointer rounded-lg border border-[var(--line)] bg-white p-2 text-left transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm',
+                          'cursor-pointer rounded-lg border border-[var(--line)] bg-white p-2 text-left transition-all hover:border-[var(--brand-bright)]/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40',
                           item.status === 'CONCLUIDO' && 'opacity-50',
                         )}
                       >
