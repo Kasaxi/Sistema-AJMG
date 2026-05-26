@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Plus, Search, Building2, Phone, Mail, EyeOff,
 } from 'lucide-react'
+import { RefreshButton } from '@/components/ui/refresh-button'
 import { FornecedorForm } from '@/components/compras/fornecedor-form'
 import { listFornecedoresComResumo } from '@/app/actions/compras-actions'
 import type { Fornecedor } from '@/types/compras'
@@ -84,9 +85,12 @@ export default function FornecedoresPage() {
         title="Fornecedores"
         subtitle={`${totalAtivos} ativos · ${formatBRL(totalCompras)} em compras totais`}
         actions={
-          <Button onClick={abrirNovo} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Novo fornecedor
-          </Button>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={carregar} />
+            <Button onClick={abrirNovo} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Novo fornecedor
+            </Button>
+          </div>
         }
       />
 

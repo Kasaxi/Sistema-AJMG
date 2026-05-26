@@ -12,6 +12,7 @@ import {
   ClipboardList, BarChart3, Building2, Tag, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, SlidersHorizontal, X,
 } from 'lucide-react'
+import { RefreshButton } from '@/components/ui/refresh-button'
 import { ObraForm } from '@/components/obras/obra-form'
 import { GastoForm } from '@/components/compras/gasto-form'
 import {
@@ -227,6 +228,7 @@ export default function ObraDetailPage({ params }: { params: Promise<{ id: strin
             >
               <ArrowLeft className="h-4 w-4" /> Obras
             </Link>
+            <RefreshButton onRefresh={recarregar} />
             <Button variant="outline" onClick={() => setObraModalOpen(true)} className="gap-1.5">
               <Pencil className="h-4 w-4" /> Editar obra
             </Button>

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Search, FileText, MapPin } from 'lucide-react'
+import { RefreshButton } from '@/components/ui/refresh-button'
 import { listCotacoes, type CotacaoListItem } from '@/app/actions/cotacoes-actions'
 import type { CotacaoStatus } from '@/types/compras'
 import { COTACAO_STATUS_LABEL } from '@/types/compras'
@@ -83,11 +84,14 @@ export default function CotacoesListPage() {
         title="Orçamentos"
         subtitle="Pedidos de cotação enviados pros fornecedores"
         actions={
-          <Link href="/compras/cotacoes/nova">
-            <Button className="gap-1.5">
-              <Plus className="h-4 w-4" /> Nova cotação
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={carregar} />
+            <Link href="/compras/cotacoes/nova">
+              <Button className="gap-1.5">
+                <Plus className="h-4 w-4" /> Nova cotação
+              </Button>
+            </Link>
+          </div>
         }
       />
 

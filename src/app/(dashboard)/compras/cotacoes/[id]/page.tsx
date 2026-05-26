@@ -14,6 +14,7 @@ import {
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
+import { RefreshButton } from '@/components/ui/refresh-button'
 import { generateWhatsappReport } from '@/lib/cotacao-report'
 import { WhatsappPickerDialog } from '@/components/cotacoes/whatsapp-picker-dialog'
 import {
@@ -175,6 +176,7 @@ export default function CotacaoDetailPage({ params }: { params: Promise<{ id: st
             >
               <ArrowLeft className="h-4 w-4" /> Orçamentos
             </Link>
+            <RefreshButton onRefresh={refresh} />
             {podeEnviar && (
               <Button
                 onClick={() => comAcao('enviar', () => setCotacaoStatus(cotacao.id, 'ENVIADA'))}

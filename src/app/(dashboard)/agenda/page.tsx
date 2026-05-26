@@ -10,6 +10,7 @@ import { KanbanView } from '@/components/agenda/views/kanban-view'
 import { SemanaView } from '@/components/agenda/views/semana-view'
 import { ListaView } from '@/components/agenda/views/lista-view'
 import { FiltroUsuario, EU, TODOS } from '@/components/agenda/filtro-usuario'
+import { RefreshButton } from '@/components/ui/refresh-button'
 import type { AgendaItem, AgendaStatus, CategoriaAgenda } from '@/types/agenda'
 import {
   listAgendaItens, listCategoriasAgenda, listProfilesAtivosComAgenda,
@@ -71,21 +72,31 @@ export default function AgendaPage() {
     return i.criado_por === id || i.atribuido_para === id
   }
 
-  // Bootstrap (uma vez)
-  useEffect(() => {
-    Promise.all([
+  // Bootstrap — usa allSettled pra não travar tudo se um fetch falhar.
+  // O profile é o mais crítico (recarregar depende dele): se faltar, o usuário
+  // pode tentar de novo via botão Atualizar.
+  const bootstrap = useCallback(async () => {
+    const [catsRes, pessRes, profRes] = await Promise.allSettled([
       listCategoriasAgenda({ ativosApenas: true }),
       listProfilesAtivosComAgenda(),
       getCurrentProfile(),
-    ]).then(([cats, pess, prof]) => {
-      setCategorias(cats)
-      setPessoas(pess)
-      setProfile(prof)
-    })
+    ])
+    if (catsRes.status === 'fulfilled') setCategorias(catsRes.value)
+    else console.error('[agenda] bootstrap: categorias falharam:', catsRes.reason)
+    if (pessRes.status === 'fulfilled') setPessoas(pessRes.value)
+    else console.error('[agenda] bootstrap: pessoas falharam:', pessRes.reason)
+    if (profRes.status === 'fulfilled') setProfile(profRes.value)
+    else console.error('[agenda] bootstrap: profile falhou:', profRes.reason)
   }, [])
+
+  useEffect(() => { void bootstrap() }, [bootstrap])
 
   // Recarrega itens baseado em view + referencia + apenasMinhas
   const recarregar = useCallback(async () => {
+    // Espera profile carregar antes de fetchar — senão o filtro "Minhas" cai
+    // em `id=undefined` e retorna TODOS os itens, causando um flash de dados
+    // errados antes do segundo fetch com profile.id válido.
+    if (!profile) return
     setLoading(true)
     try {
       const year = referencia.getFullYear()
@@ -206,6 +217,11 @@ export default function AgendaPage() {
                 euNome={profile.nome.split(' ')[0]}
               />
             )}
+            <RefreshButton onRefresh={async () => {
+              // Re-tenta bootstrap se ainda não temos profile (failsafe).
+              if (!profile) await bootstrap()
+              await recarregar()
+            }} />
             <Button onClick={() => abrirNovo()} className="gap-1.5">
               <Plus className="h-4 w-4" /> Nova
             </Button>

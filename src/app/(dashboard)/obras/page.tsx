@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Search } from 'lucide-react'
+import { RefreshButton } from '@/components/ui/refresh-button'
 import { ObraForm } from '@/components/obras/obra-form'
 import { listObrasComResumo } from '@/app/actions/obras-actions'
 import type { Obra, ObraComResumo, ObraStatus } from '@/types/obras'
@@ -108,9 +109,12 @@ export default function ObrasPage() {
         title="Obras"
         subtitle="Empreendimentos e canteiros da AJMG"
         actions={
-          <Button onClick={abrirNova} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Nova obra
-          </Button>
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={carregar} />
+            <Button onClick={abrirNova} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Nova obra
+            </Button>
+          </div>
         }
       />
 
