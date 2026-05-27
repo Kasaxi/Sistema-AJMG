@@ -10,8 +10,11 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react'
 import { listObras } from '@/app/actions/obras-actions'
-import { listFornecedores, listUnidadesMedida, listCategoriasCusto } from '@/app/actions/compras-actions'
+import {
+  listFornecedores, listUnidadesMedida, listCategoriasCusto, upsertItemCatalogo,
+} from '@/app/actions/compras-actions'
 import { createCotacao } from '@/app/actions/cotacoes-actions'
+import { ItemAutocomplete } from '@/components/compras/item-autocomplete'
 import type { Obra } from '@/types/obras'
 import type { Fornecedor, UnidadeMedida, CategoriaCusto, CotacaoItemInput } from '@/types/compras'
 import { cn } from '@/lib/utils'
@@ -106,6 +109,17 @@ export default function NovaCotacaoPage() {
         })),
         fornecedor_ids: fornecedorIds,
       })
+
+      // Cresce o catálogo com cada item da cotação (não-bloqueante).
+      // Falhas individuais são ignoradas — a cotação já foi criada.
+      Promise.allSettled(
+        itensValidos.map(it => upsertItemCatalogo({
+          descricao: it.descricao,
+          unidade_padrao_id: it.unidade_id ?? null,
+          categoria_padrao_id: it.categoria_id ?? null,
+        }))
+      ).catch(() => {})
+
       router.push(`/compras/cotacoes/${cotacao.id}`)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falhou ao criar a cotação.')
@@ -326,11 +340,15 @@ function ItemRow({
           {index + 1}
         </span>
         <div className="grid flex-1 grid-cols-1 gap-2.5 sm:grid-cols-[1fr_100px_100px_120px]">
-          <Input
+          <ItemAutocomplete
             value={item.descricao}
-            onChange={e => onChange({ descricao: e.target.value })}
+            onChange={v => onChange({ descricao: v })}
+            onSelect={(s) => onChange({
+              descricao: s.descricao,
+              unidade_id: s.unidade_padrao_id ?? item.unidade_id,
+              categoria_id: s.categoria_padrao_id ?? item.categoria_id,
+            })}
             placeholder="Descrição do item"
-            className="h-10 rounded-lg"
           />
           <Input
             type="number"

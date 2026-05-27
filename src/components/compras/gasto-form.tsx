@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Loader2, ClipboardList, Tag, Calculator, Building2, Trash2 } from 'lucide-react'
 import type { CategoriaCusto, Fornecedor, Gasto, GastoInput, UnidadeMedida } from '@/types/compras'
-import { createGasto, updateGasto, deleteGasto } from '@/app/actions/compras-actions'
+import { createGasto, updateGasto, deleteGasto, upsertItemCatalogo } from '@/app/actions/compras-actions'
+import { ItemAutocomplete } from './item-autocomplete'
 
 const NONE = '__none__'
 
@@ -123,6 +124,17 @@ export function GastoForm({
           await updateGasto(initialData.id, payload)
         } else {
           await createGasto(payload)
+          // Cresce o catálogo automaticamente — se a descrição já existir
+          // (case-insensitive), é no-op. Não bloqueia o save em caso de falha.
+          try {
+            await upsertItemCatalogo({
+              descricao: payload.descricao,
+              unidade_padrao_id: payload.unidade_id,
+              categoria_padrao_id: payload.categoria_id,
+            })
+          } catch (err) {
+            console.warn('[gasto] upsert catálogo falhou:', err)
+          }
         }
         onSaved?.()
         onClose()
@@ -164,14 +176,17 @@ export function GastoForm({
                 <Label htmlFor="g-desc" className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
                   Descrição *
                 </Label>
-                <Input
+                <ItemAutocomplete
                   id="g-desc"
                   value={descricao}
-                  onChange={e => setDescricao(e.target.value)}
+                  onChange={setDescricao}
+                  onSelect={(item) => {
+                    if (item.unidade_padrao_id) setUnidadeId(item.unidade_padrao_id)
+                    if (item.categoria_padrao_id) setCategoriaId(item.categoria_padrao_id)
+                  }}
                   placeholder="Ex: Cimento CP-II 50kg"
-                  className="mt-1.5 h-10 rounded-xl"
+                  className="mt-1.5"
                   autoFocus
-                  required
                 />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

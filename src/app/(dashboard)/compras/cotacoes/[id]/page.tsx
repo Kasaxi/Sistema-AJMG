@@ -29,7 +29,8 @@ import {
   type CotacaoDetail,
 } from '@/app/actions/cotacoes-actions'
 import { MapaComparativo } from '@/components/cotacoes/mapa-comparativo'
-import { listFornecedores, listUnidadesMedida, listCategoriasCusto } from '@/app/actions/compras-actions'
+import { listFornecedores, listUnidadesMedida, listCategoriasCusto, upsertItemCatalogo } from '@/app/actions/compras-actions'
+import { ItemAutocomplete } from '@/components/compras/item-autocomplete'
 import type {
   Fornecedor, UnidadeMedida, CategoriaCusto, CotacaoStatus, CotacaoFornecedorStatus,
 } from '@/types/compras'
@@ -514,6 +515,12 @@ function NovoItemInline({
         unidade_id: unidadeId || null,
         categoria_id: categoriaId || null,
       })
+      // Cresce o catálogo (não-bloqueante)
+      void upsertItemCatalogo({
+        descricao: descricao.trim(),
+        unidade_padrao_id: unidadeId || null,
+        categoria_padrao_id: categoriaId || null,
+      }).catch(() => {})
       await onSalvo()
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falhou.')
@@ -525,7 +532,17 @@ function NovoItemInline({
   return (
     <div className="mb-4 rounded-xl border border-[var(--brand-bright)]/40 bg-[var(--brand-tint)]/30 p-3.5">
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_100px_100px_120px_auto]">
-        <Input value={descricao} onChange={e => setDescricao(e.target.value)} placeholder="Descrição" className="h-10 rounded-lg" autoFocus />
+        <ItemAutocomplete
+          value={descricao}
+          onChange={setDescricao}
+          onSelect={(s) => {
+            setDescricao(s.descricao)
+            if (s.unidade_padrao_id) setUnidadeId(s.unidade_padrao_id)
+            if (s.categoria_padrao_id) setCategoriaId(s.categoria_padrao_id)
+          }}
+          placeholder="Descrição"
+          autoFocus
+        />
         <Input type="number" min="0" step="0.001" value={quantidade} onChange={e => setQuantidade(Number(e.target.value) || 0)} placeholder="Qtd" className="h-10 rounded-lg tabular-nums" />
         <select value={unidadeId} onChange={e => setUnidadeId(e.target.value)} className="h-10 cursor-pointer rounded-lg border border-[var(--line)] bg-white px-2 text-sm">
           <option value="">Unidade</option>
@@ -594,11 +611,15 @@ function EditarItemInlineRow({
     <tr className="border-t border-[var(--brand-bright)]/30 bg-[var(--brand-tint)]/20">
       <td colSpan={6} className="p-2.5">
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[1fr_90px_90px_140px_auto]">
-          <Input
+          <ItemAutocomplete
             value={descricao}
-            onChange={e => setDescricao(e.target.value)}
+            onChange={setDescricao}
+            onSelect={(s) => {
+              setDescricao(s.descricao)
+              if (s.unidade_padrao_id) setUnidadeId(s.unidade_padrao_id)
+              if (s.categoria_padrao_id) setCategoriaId(s.categoria_padrao_id)
+            }}
             placeholder="Descrição"
-            className="h-9 rounded-lg"
             autoFocus
           />
           <Input

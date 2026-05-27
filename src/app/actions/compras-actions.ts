@@ -136,6 +136,97 @@ export async function listCategoriasCusto(opts: { ativosApenas?: boolean } = {})
 }
 
 // ═══════════════════════════════════════════════════════════════
+// CATÁLOGO DE ITENS (autocomplete em gastos e cotações)
+// ═══════════════════════════════════════════════════════════════
+
+export interface ItemCatalogoSugestao {
+  id: string
+  descricao: string
+  unidade_padrao_id: string | null
+  categoria_padrao_id: string | null
+  unidade?: UnidadeMedida | null
+  categoria?: CategoriaCusto | null
+}
+
+/**
+ * Busca itens do catálogo por descrição. Usa ILIKE (case-insensitive
+ * substring) — barato e suficiente pra typeahead.
+ * O GIN index full-text seria mais robusto mas exige tsquery; ILIKE
+ * cobre o caso real (usuário digitando 3-4 letras e vendo match).
+ */
+export async function searchItensCatalogo(query: string, limit = 8): Promise<ItemCatalogoSugestao[]> {
+  const { supabase } = await requireUser()
+  const q = query.trim()
+  if (!q) return []
+  // Escapa % e _ que são wildcards em ILIKE
+  const safe = q.replace(/[%_]/g, '\\$&')
+  const { data, error } = await supabase
+    .from('itens_catalogo')
+    .select(`
+      id, descricao, unidade_padrao_id, categoria_padrao_id,
+      unidade:unidades_medida!unidade_padrao_id(*),
+      categoria:categorias_custo!categoria_padrao_id(*)
+    `)
+    .eq('ativo', true)
+    .ilike('descricao', `%${safe}%`)
+    .order('descricao', { ascending: true })
+    .limit(limit)
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as ItemCatalogoSugestao[]
+}
+
+/**
+ * Upsert no catálogo: se já existe item com mesma descrição
+ * (case/whitespace-insensitive via índice único), retorna o existente
+ * sem mexer. Caso contrário, cria novo com os defaults fornecidos.
+ * Idempotente — chamado a cada save de gasto/cotação sem custo.
+ */
+export async function upsertItemCatalogo(input: {
+  descricao: string
+  unidade_padrao_id?: string | null
+  categoria_padrao_id?: string | null
+}): Promise<{ id: string; created: boolean }> {
+  const { supabase } = await requireUser()
+  const descricao = input.descricao.trim()
+  if (!descricao) throw new Error('Descrição vazia.')
+
+  // Tenta encontrar existente (case-insensitive)
+  const { data: existente } = await supabase
+    .from('itens_catalogo')
+    .select('id')
+    .ilike('descricao', descricao)
+    .maybeSingle()
+
+  if (existente) {
+    return { id: existente.id, created: false }
+  }
+
+  const { data, error } = await supabase
+    .from('itens_catalogo')
+    .insert({
+      descricao,
+      unidade_padrao_id: input.unidade_padrao_id ?? null,
+      categoria_padrao_id: input.categoria_padrao_id ?? null,
+      ativo: true,
+    })
+    .select('id')
+    .single()
+  if (error) {
+    // Conflito (race com índice único) → tenta buscar novamente
+    if (error.code === '23505') {
+      const { data: race } = await supabase
+        .from('itens_catalogo')
+        .select('id')
+        .ilike('descricao', descricao)
+        .maybeSingle()
+      if (race) return { id: race.id, created: false }
+    }
+    throw new Error(error.message)
+  }
+  return { id: data.id, created: true }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // GASTOS
 // ═══════════════════════════════════════════════════════════════
 
