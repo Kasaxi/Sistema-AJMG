@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
@@ -8,20 +8,43 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, AlertCircle, Calendar as CalendarIcon, Plus, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft, AlertCircle, Calendar as CalendarIcon, Plus, Trash2,
+  Paperclip, FileText, Image as ImageIcon, Video, X as XIcon,
+} from 'lucide-react'
 import {
   createManutencao,
   listTiposManutencao,
   listProfilesAtivosComManutencao,
+  uploadManutencaoAnexo,
 } from '@/app/actions/manutencoes-actions'
 import { ClientePosVendaAutocomplete } from '@/components/manutencoes/cliente-autocomplete'
 import type { TipoManutencao, ClientePosVenda, ManutencaoItemInput } from '@/types/manutencoes'
+import { cn } from '@/lib/utils'
 
 interface ItemDraft extends ManutencaoItemInput {
   _id: string
+  arquivos: File[]
 }
 function novoItemDraft(): ItemDraft {
-  return { _id: crypto.randomUUID(), descricao: '', tipo_id: null, status: 'PENDENTE' }
+  return { _id: crypto.randomUUID(), descricao: '', tipo_id: null, status: 'PENDENTE', arquivos: [] }
+}
+
+const MAX_FILE_BYTES = 100 * 1024 * 1024 // 100 MB — alinhado ao bucket
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+function iconePorMime(mime: string) {
+  if (mime.startsWith('image/')) return { Icon: ImageIcon, cor: 'text-emerald-700' }
+  if (mime.startsWith('video/')) return { Icon: Video,     cor: 'text-violet-700' }
+  return { Icon: FileText, cor: 'text-[var(--ink-soft)]' }
+}
+function fileTypeFromMime(mime: string): 'FOTO_DEPOIS' | 'OUTRO' | 'DOCUMENTO' {
+  if (mime.startsWith('image/')) return 'FOTO_DEPOIS'
+  if (mime.startsWith('video/')) return 'OUTRO'
+  return 'DOCUMENTO'
 }
 
 export default function NovaManutencaoPage() {
@@ -68,6 +91,24 @@ export default function NovaManutencaoPage() {
   function adicionarItem() {
     setItens(prev => [...prev, novoItemDraft()])
   }
+  function adicionarArquivos(itemId: string, files: FileList | null) {
+    if (!files || files.length === 0) return
+    const lista = Array.from(files)
+    const grandes = lista.filter(f => f.size > MAX_FILE_BYTES)
+    if (grandes.length) {
+      setErro(`Arquivo maior que 100 MB: ${grandes.map(f => f.name).join(', ')}`)
+    }
+    const validos = lista.filter(f => f.size <= MAX_FILE_BYTES)
+    if (validos.length === 0) return
+    setItens(prev => prev.map(it =>
+      it._id === itemId ? { ...it, arquivos: [...it.arquivos, ...validos] } : it,
+    ))
+  }
+  function removerArquivo(itemId: string, idx: number) {
+    setItens(prev => prev.map(it =>
+      it._id === itemId ? { ...it, arquivos: it.arquivos.filter((_, i) => i !== idx) } : it,
+    ))
+  }
 
   async function salvar() {
     setErro(null)
@@ -79,7 +120,7 @@ export default function NovaManutencaoPage() {
 
     setSalvando(true)
     try {
-      const m = await createManutencao({
+      const { manutencao, itens: itensCriados } = await createManutencao({
         cliente_id: cliente?.id || null,
         endereco: endereco.trim() || null,
         data_agendada: dataAgendada || null,
@@ -95,10 +136,34 @@ export default function NovaManutencaoPage() {
         })),
         criar_na_agenda: criarNaAgenda,
       })
-      router.push(`/manutencoes/${m.id}`)
+
+      // Upload de anexos pós-save (mapeia draft → item criado pela ordem)
+      const falhas: string[] = []
+      for (let i = 0; i < itensValidos.length; i++) {
+        const draft = itensValidos[i]
+        const criado = itensCriados[i]
+        if (!criado || draft.arquivos.length === 0) continue
+        for (const file of draft.arquivos) {
+          try {
+            const fd = new FormData()
+            fd.append('manutencao_id', manutencao.id)
+            fd.append('item_id', criado.id)
+            fd.append('file_type', fileTypeFromMime(file.type))
+            fd.append('file', file)
+            await uploadManutencaoAnexo(fd)
+          } catch (e) {
+            falhas.push(`${file.name}: ${e instanceof Error ? e.message : 'erro'}`)
+          }
+        }
+      }
+
+      if (falhas.length) {
+        // Manutenção foi criada; alerta falhas e segue pro detalhe.
+        alert(`Manutenção criada, mas alguns anexos falharam:\n${falhas.join('\n')}`)
+      }
+      router.push(`/manutencoes/${manutencao.id}`)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falhou ao criar a manutenção.')
-    } finally {
       setSalvando(false)
     }
   }
@@ -175,7 +240,7 @@ export default function NovaManutencaoPage() {
             <div>
               <h2 className="font-display text-base font-bold text-[var(--ink)]">Itens / situações</h2>
               <p className="text-xs text-[var(--ink-soft)]">
-                Liste cada problema separadamente com seu tipo. Fotos/vídeos por item vêm no detalhe.
+                Liste cada problema separadamente com seu tipo. Anexe fotos ou vídeos direto no item.
               </p>
             </div>
             <Button variant="outline" onClick={adicionarItem} className="gap-1.5">
@@ -185,40 +250,17 @@ export default function NovaManutencaoPage() {
 
           <div className="space-y-2.5">
             {itens.map((it, idx) => (
-              <div key={it._id} className="rounded-xl border border-[var(--line)] bg-[var(--paper)]/40 p-3.5">
-                <div className="flex items-start gap-2.5">
-                  <span className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-xs font-bold text-[var(--ink-soft)] ring-1 ring-inset ring-[var(--line)]">
-                    {idx + 1}
-                  </span>
-                  <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-[1fr_160px]">
-                    <Input
-                      value={it.descricao}
-                      onChange={e => updateItem(it._id, { descricao: e.target.value })}
-                      placeholder="Ex: Torneira pingando no banheiro da suíte"
-                      className="h-10 rounded-lg"
-                    />
-                    <select
-                      value={it.tipo_id ?? ''}
-                      onChange={e => updateItem(it._id, { tipo_id: e.target.value || null })}
-                      className="h-10 cursor-pointer rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-bright)]/40"
-                    >
-                      <option value="">— tipo —</option>
-                      {tipos.map(t => (
-                        <option key={t.id} value={t.id}>{t.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removerItem(it._id)}
-                    disabled={itens.length === 1}
-                    className="mt-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-[var(--ink-faint)] transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
-                    aria-label="Remover item"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+              <ItemDraftCard
+                key={it._id}
+                item={it}
+                index={idx}
+                tipos={tipos}
+                podeRemover={itens.length > 1}
+                onUpdate={(patch) => updateItem(it._id, patch)}
+                onRemove={() => removerItem(it._id)}
+                onAddFiles={(files) => adicionarArquivos(it._id, files)}
+                onRemoveFile={(i) => removerArquivo(it._id, i)}
+              />
             ))}
           </div>
         </section>
@@ -299,5 +341,112 @@ export default function NovaManutencaoPage() {
         </section>
       </div>
     </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ItemDraftCard — uma linha da lista de itens com upload inline
+// ─────────────────────────────────────────────────────────────────
+interface ItemDraftCardProps {
+  item: ItemDraft
+  index: number
+  tipos: TipoManutencao[]
+  podeRemover: boolean
+  onUpdate: (patch: Partial<ItemDraft>) => void
+  onRemove: () => void
+  onAddFiles: (files: FileList | null) => void
+  onRemoveFile: (idx: number) => void
+}
+
+function ItemDraftCard({
+  item, index, tipos, podeRemover, onUpdate, onRemove, onAddFiles, onRemoveFile,
+}: ItemDraftCardProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--paper)]/40 p-3.5">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-xs font-bold text-[var(--ink-soft)] ring-1 ring-inset ring-[var(--line)]">
+          {index + 1}
+        </span>
+        <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-[1fr_160px]">
+          <Input
+            value={item.descricao}
+            onChange={e => onUpdate({ descricao: e.target.value })}
+            placeholder="Ex: Torneira pingando no banheiro da suíte"
+            className="h-10 rounded-lg"
+          />
+          <select
+            value={item.tipo_id ?? ''}
+            onChange={e => onUpdate({ tipo_id: e.target.value || null })}
+            className="h-10 cursor-pointer rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-bright)]/40"
+          >
+            <option value="">— tipo —</option>
+            {tipos.map(t => (
+              <option key={t.id} value={t.id}>{t.nome}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={!podeRemover}
+          className="mt-1 grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-[var(--ink-faint)] transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label="Remover item"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Anexos do item (upload diferido — sobem após criar) */}
+      <div className="mt-2.5 pl-[2.375rem]">
+        {item.arquivos.length > 0 && (
+          <ul className="mb-2 space-y-1">
+            {item.arquivos.map((f, i) => {
+              const { Icon, cor } = iconePorMime(f.type)
+              return (
+                <li
+                  key={`${f.name}-${i}`}
+                  className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-2.5 py-1.5"
+                >
+                  <span className={cn('grid h-6 w-6 shrink-0 place-items-center rounded-md bg-[var(--paper)]', cor)}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-[var(--ink)]">{f.name}</span>
+                  <span className="shrink-0 text-[10px] tabular-nums text-[var(--ink-faint)]">{formatSize(f.size)}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveFile(i)}
+                    className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded text-[var(--ink-faint)] transition-colors hover:bg-rose-50 hover:text-rose-600"
+                    aria-label="Remover arquivo"
+                  >
+                    <XIcon className="h-3 w-3" />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,application/pdf,.xlsx,.xls"
+          multiple
+          onChange={e => {
+            onAddFiles(e.target.files)
+            if (fileInputRef.current) fileInputRef.current.value = ''
+          }}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-[var(--line)] px-2.5 text-xs font-semibold text-[var(--ink-soft)] transition-all hover:border-[var(--brand-bright)]/40 hover:bg-white hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40"
+        >
+          <Paperclip className="h-3 w-3" />
+          {item.arquivos.length === 0 ? 'Anexar foto ou vídeo' : 'Anexar mais'}
+        </button>
+      </div>
+    </div>
   )
 }

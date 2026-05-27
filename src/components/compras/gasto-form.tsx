@@ -16,7 +16,9 @@ const NONE = '__none__'
 interface GastoFormProps {
   open: boolean
   onClose: () => void
-  obraId: string
+  /** Exatamente um deve ser passado. O outro fica undefined. */
+  obraId?: string
+  manutencaoId?: string
   initialData?: Gasto | null
   categorias: CategoriaCusto[]
   unidades: UnidadeMedida[]
@@ -48,7 +50,7 @@ function formatBR(n: number | null | undefined, decimals = 2): string {
 }
 
 export function GastoForm({
-  open, onClose, obraId, initialData, categorias, unidades, fornecedores, onSaved,
+  open, onClose, obraId, manutencaoId, initialData, categorias, unidades, fornecedores, onSaved,
 }: GastoFormProps) {
   const editing = !!initialData
   const [pending, startTransition] = useTransition()
@@ -107,7 +109,8 @@ export function GastoForm({
     if (!data)             { setErro('Data é obrigatória'); return }
 
     const payload: GastoInput = {
-      obra_id: obraId,
+      obra_id: obraId ?? null,
+      manutencao_id: manutencaoId ?? null,
       descricao: descricao.trim(),
       categoria_id: categoriaId,
       unidade_id: unidadeId,
@@ -149,7 +152,7 @@ export function GastoForm({
     if (!confirm(`Excluir o gasto "${initialData.descricao}"?`)) return
     startTransition(async () => {
       try {
-        await deleteGasto(initialData.id, obraId)
+        await deleteGasto(initialData.id, { obraId, manutencaoId })
         onSaved?.()
         onClose()
       } catch (err) {

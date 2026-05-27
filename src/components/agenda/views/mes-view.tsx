@@ -119,7 +119,9 @@ export function MesView({ referencia, onReferenciaChange, itens, loading, onItem
                 type="button"
                 onClick={() => onDayClick(cell.iso)}
                 className={cn(
-                  'group relative flex h-28 cursor-pointer flex-col gap-1 bg-white p-1.5 text-left transition-colors hover:bg-[var(--paper)]',
+                  // Hover da célula só "acende" quando o cursor NÃO está sobre um item filho
+                  'group relative flex h-28 cursor-pointer flex-col gap-1 bg-white p-1.5 text-left transition-colors',
+                  'hover:bg-[var(--paper)] has-[.agenda-item:hover]:bg-white',
                   !cell.inMonth && 'bg-[var(--paper)]/30 text-[var(--ink-faint)]',
                 )}
               >
@@ -136,7 +138,15 @@ export function MesView({ referencia, onReferenciaChange, itens, loading, onItem
                   >
                     {cell.date.getDate()}
                   </span>
-                  <Plus className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-50" />
+                  {/* Indicador "criar novo" — visível só quando hover na área vazia da célula */}
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-0.5 rounded-md bg-[var(--ink)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white opacity-0 transition-opacity',
+                      'group-hover:opacity-90 group-has-[.agenda-item:hover]:opacity-0',
+                    )}
+                  >
+                    <Plus className="h-2.5 w-2.5" strokeWidth={3} /> Novo
+                  </span>
                 </div>
                 <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
                   {items.slice(0, 3).map(item => (
@@ -153,7 +163,9 @@ export function MesView({ referencia, onReferenciaChange, itens, loading, onItem
                       role="button"
                       tabIndex={0}
                       className={cn(
-                        'cursor-pointer truncate rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40',
+                        'agenda-item cursor-pointer truncate rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight ring-1 ring-inset ring-transparent transition-all',
+                        'hover:shadow-sm hover:brightness-95 hover:ring-current/30',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40',
                         item.status === 'CONCLUIDO' && 'line-through opacity-50',
                       )}
                       style={{

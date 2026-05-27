@@ -57,6 +57,8 @@ export interface ClientePosVenda {
   email: string | null
   cpf_cnpj: string | null
   observacoes: string | null
+  /** Token público para acessar o portal do cliente (/portal/[token]). */
+  token: string
   criado_por: string | null
   created_at: string
   updated_at: string
@@ -146,4 +148,62 @@ export interface ManutencaoAnexo {
   size_bytes: number | null
   uploaded_por: string | null
   uploaded_at: string
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ORDEM DE SERVIÇO (solicitação pública, vira manutenção quando aceita)
+// ═══════════════════════════════════════════════════════════════
+
+export type OrdemServicoStatus = 'PENDENTE' | 'ACEITA' | 'RECUSADA'
+export type OrdemServicoOrigem = 'PORTAL' | 'PUBLICA'
+export type OrdemAnexoTipo = 'FOTO' | 'VIDEO' | 'DOCUMENTO' | 'OUTRO'
+
+export const ORDEM_SERVICO_STATUS_LABEL: Record<OrdemServicoStatus, string> = {
+  PENDENTE: 'Pendente',
+  ACEITA:   'Aceita',
+  RECUSADA: 'Recusada',
+}
+
+export interface OrdemServico {
+  id: string
+  cliente_id: string | null
+  nome_solicitante: string
+  telefone: string | null
+  email: string | null
+  cpf_cnpj: string | null
+  endereco: string | null
+  descricao: string
+  status: OrdemServicoStatus
+  manutencao_id: string | null
+  origem: OrdemServicoOrigem
+  motivo_recusa: string | null
+  decidida_em: string | null
+  decidida_por: string | null
+  created_at: string
+  updated_at: string
+  // joins opcionais
+  cliente?: ClientePosVenda | null
+  anexos?: OrdemServicoAnexo[]
+}
+
+export interface OrdemServicoAnexo {
+  id: string
+  ordem_id: string
+  file_path: string
+  file_name: string
+  file_type: OrdemAnexoTipo
+  size_bytes: number | null
+  uploaded_at: string
+}
+
+/** Payload do form público (sem auth). */
+export interface OrdemServicoPublicaInput {
+  /** Token do portal — quando presente, vincula ao cliente. */
+  token?: string | null
+  nome_solicitante: string
+  telefone?: string | null
+  email?: string | null
+  cpf_cnpj?: string | null
+  endereco?: string | null
+  descricao: string
 }

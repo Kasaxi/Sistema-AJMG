@@ -177,7 +177,13 @@ export async function getManutencao(id: string): Promise<Manutencao | null> {
 // MANUTENÇÕES — mutações
 // ═══════════════════════════════════════════════════════════════
 
-export async function createManutencao(input: ManutencaoInput): Promise<Manutencao> {
+export interface CreateManutencaoResult {
+  manutencao: Manutencao
+  /** Itens criados na mesma ordem do input — usar pra upload de anexos pós-save. */
+  itens: ManutencaoItem[]
+}
+
+export async function createManutencao(input: ManutencaoInput): Promise<CreateManutencaoResult> {
   const { supabase, user } = await requireUser()
 
   const itensValidos = (input.itens ?? []).filter(i => i.descricao.trim())
@@ -200,7 +206,7 @@ export async function createManutencao(input: ManutencaoInput): Promise<Manutenc
     .single()
   if (error) throw new Error(error.message)
 
-  // Insere itens iniciais (cada um com seu tipo)
+  // Insere itens iniciais (cada um com seu tipo) e devolve em ordem
   const rows = itensValidos.map((it, i) => ({
     manutencao_id: m.id,
     tipo_id: it.tipo_id || null,
@@ -209,7 +215,11 @@ export async function createManutencao(input: ManutencaoInput): Promise<Manutenc
     observacoes: it.observacoes?.trim() || null,
     ordem: it.ordem ?? i,
   }))
-  const { error: itensErr } = await supabase.from('manutencao_itens').insert(rows)
+  const { data: itensCriados, error: itensErr } = await supabase
+    .from('manutencao_itens')
+    .insert(rows)
+    .select('*, tipo:tipos_manutencao(*)')
+    .order('ordem', { ascending: true })
   if (itensErr) console.error('[manutencoes] Falhou ao inserir itens iniciais:', itensErr.message)
 
   // Integração opcional com Agenda
@@ -260,7 +270,10 @@ export async function createManutencao(input: ManutencaoInput): Promise<Manutenc
   }
 
   revalidateManutencoes()
-  return m as Manutencao
+  return {
+    manutencao: m as Manutencao,
+    itens: (itensCriados ?? []) as unknown as ManutencaoItem[],
+  }
 }
 
 export async function updateManutencao(id: string, patch: Partial<ManutencaoInput>): Promise<Manutencao> {

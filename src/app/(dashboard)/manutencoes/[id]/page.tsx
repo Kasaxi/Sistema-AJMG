@@ -8,18 +8,28 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RefreshButton } from '@/components/ui/refresh-button'
 import {
-  ArrowLeft, AlertCircle, MapPin, User, CalendarDays, Clock, Wrench,
-  Play, Check, X as XIcon, RotateCcw, Paperclip, Plus, Trash2, Circle,
+  ArrowLeft, AlertCircle, MapPin, User, CalendarDays, Clock,
+  Play, Check, X as XIcon, RotateCcw, Plus, Trash2, Circle, DollarSign, Pencil,
 } from 'lucide-react'
 import {
   getManutencao, setManutencaoStatus, deleteManutencao,
   listManutencaoItens, addManutencaoItem, setItemStatus, removeManutencaoItem,
   listTiposManutencao,
 } from '@/app/actions/manutencoes-actions'
+import {
+  listGastos, listCategoriasCusto, listUnidadesMedida, listFornecedores,
+} from '@/app/actions/compras-actions'
 import type { Manutencao, ManutencaoStatus, ManutencaoItem, TipoManutencao } from '@/types/manutencoes'
+import type { Gasto, CategoriaCusto, UnidadeMedida, Fornecedor } from '@/types/compras'
 import { AnexosItem } from '@/components/manutencoes/anexos-item'
+import { SharePortalButton } from '@/components/manutencoes/share-portal-button'
+import { GastoForm } from '@/components/compras/gasto-form'
 import { MANUTENCAO_STATUS_LABEL } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
+
+function formatBRL(n: number): string {
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
 
 const STATUS_TONE: Record<ManutencaoStatus, string> = {
   AGENDADA:      'bg-[var(--paper)] text-[var(--ink-soft)]',
@@ -45,6 +55,12 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
   const [m, setM] = useState<Manutencao | null>(null)
   const [itens, setItens] = useState<ManutencaoItem[]>([])
   const [tipos, setTipos] = useState<TipoManutencao[]>([])
+  const [gastos, setGastos] = useState<Gasto[]>([])
+  const [categorias, setCategorias] = useState<CategoriaCusto[]>([])
+  const [unidades, setUnidades] = useState<UnidadeMedida[]>([])
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([])
+  const [gastoModalOpen, setGastoModalOpen] = useState(false)
+  const [gastoEditando, setGastoEditando] = useState<Gasto | null>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [acao, setAcao] = useState<string | null>(null)
@@ -53,15 +69,23 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
   const refresh = useCallback(async () => {
     setErro(null)
     try {
-      const [data, lista, ts] = await Promise.all([
+      const [data, lista, ts, gs, cats, unis, forns] = await Promise.all([
         getManutencao(id),
         listManutencaoItens(id),
         listTiposManutencao({ ativosApenas: true }),
+        listGastos({ manutencao_id: id, per_page: 200 }),
+        listCategoriasCusto(),
+        listUnidadesMedida(),
+        listFornecedores(),
       ])
       if (!data) { router.replace('/manutencoes'); return }
       setM(data)
       setItens(lista)
       setTipos(ts)
+      setGastos(gs.items)
+      setCategorias(cats)
+      setUnidades(unis)
+      setFornecedores(forns)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falhou ao carregar.')
     }
@@ -120,6 +144,7 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
             >
               <ArrowLeft className="h-4 w-4" /> Manutenções
             </Link>
+            {m.cliente?.token && <SharePortalButton token={m.cliente.token} />}
             <RefreshButton onRefresh={refresh} />
           </div>
         }
@@ -252,17 +277,115 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
           podeEditar={m.status !== 'CANCELADA'}
         />
 
-        {/* Lançamento de gastos — chunk futuro */}
-        <section className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-6 py-8 text-center">
-          <span className="mx-auto grid h-10 w-10 place-items-center rounded-2xl bg-[var(--paper)] text-[var(--ink-soft)]">
-            <Paperclip className="h-4 w-4" />
-          </span>
-          <p className="mt-3 font-display text-sm font-semibold text-[var(--ink)]">
-            Lançamento de gastos vinculados a essa manutenção chega no próximo chunk.
-          </p>
-        </section>
+        {/* Lançamento de gastos vinculados */}
+        <GastosSection
+          gastos={gastos}
+          podeEditar={m.status !== 'CANCELADA'}
+          onAdd={() => { setGastoEditando(null); setGastoModalOpen(true) }}
+          onEdit={(g) => { setGastoEditando(g); setGastoModalOpen(true) }}
+        />
       </div>
+
+      <GastoForm
+        open={gastoModalOpen}
+        onClose={() => setGastoModalOpen(false)}
+        manutencaoId={m.id}
+        initialData={gastoEditando}
+        categorias={categorias}
+        unidades={unidades}
+        fornecedores={fornecedores}
+        onSaved={() => { void refresh() }}
+      />
     </>
+  )
+}
+
+function GastosSection({
+  gastos, podeEditar, onAdd, onEdit,
+}: {
+  gastos: Gasto[]
+  podeEditar: boolean
+  onAdd: () => void
+  onEdit: (g: Gasto) => void
+}) {
+  const total = gastos.reduce((acc, g) => acc + Number(g.valor_total), 0)
+
+  return (
+    <section className="rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6">
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <div>
+          <h2 className="font-display text-base font-bold text-[var(--ink)]">Gastos</h2>
+          <p className="text-xs text-[var(--ink-soft)]">
+            {gastos.length === 0
+              ? 'Nenhum gasto lançado.'
+              : `${gastos.length} lançamento${gastos.length > 1 ? 's' : ''} · ${formatBRL(total)}`}
+          </p>
+        </div>
+        {podeEditar && (
+          <Button onClick={onAdd} variant="outline" className="gap-1.5 print:hidden">
+            <Plus className="h-4 w-4" /> Lançar gasto
+          </Button>
+        )}
+      </div>
+
+      {gastos.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--line)] bg-[var(--paper)]/30 px-4 py-8 text-center">
+          <span className="mx-auto grid h-10 w-10 place-items-center rounded-2xl bg-white text-[var(--ink-soft)]">
+            <DollarSign className="h-4 w-4" />
+          </span>
+          <p className="mt-2 text-sm text-[var(--ink-soft)]">
+            Materiais, mão de obra ou notas fiscais vinculados a essa O.S. aparecem aqui.
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-1.5">
+          {gastos.map(g => (
+            <li
+              key={g.id}
+              className="group flex items-center gap-3 rounded-xl border border-[var(--line)] bg-white px-3 py-2.5 transition-colors hover:border-[var(--brand-bright)]/40"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <p className="truncate text-sm font-medium text-[var(--ink)]">{g.descricao}</p>
+                  {g.categoria?.nome && (
+                    <span
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                      style={{
+                        backgroundColor: g.categoria.cor ? `${g.categoria.cor}20` : 'var(--brand-tint)',
+                        color: g.categoria.cor ?? 'var(--brand-bright)',
+                      }}
+                    >
+                      {g.categoria.nome}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
+                  {formatDateBR(g.data)}
+                  {g.fornecedor?.nome && <> · {g.fornecedor.nome}</>}
+                  {' · '}
+                  {Number(g.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {g.unidade?.sigla ?? ''}
+                  {' × '}
+                  {formatBRL(Number(g.valor_unitario))}
+                </p>
+              </div>
+              <span className="shrink-0 font-display text-sm font-semibold tabular-nums text-[var(--ink)]">
+                {formatBRL(Number(g.valor_total))}
+              </span>
+              {podeEditar && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(g)}
+                  className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-[var(--ink-faint)] opacity-0 transition-all hover:bg-[var(--paper)] hover:text-[var(--ink)] group-hover:opacity-100 print:hidden"
+                  aria-label="Editar gasto"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 

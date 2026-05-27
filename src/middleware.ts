@@ -25,11 +25,14 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isLoginPage = request.nextUrl.pathname === '/login'
+  const path = request.nextUrl.pathname
+  const isLoginPage = path === '/login'
   const isPublicPath =
     isLoginPage
-    || request.nextUrl.pathname.startsWith('/api/auth')
-    || request.nextUrl.pathname.startsWith('/cotacao/')  // resposta pública de fornecedores
+    || path.startsWith('/api/auth')
+    || path.startsWith('/cotacao/')                                 // resposta pública de fornecedores
+    || path === '/manutencao' || path.startsWith('/manutencao/')    // portal/solicitação pública (não confundir com /manutencoes interno)
+    || path === '/portal' || path.startsWith('/portal/')            // portal do cliente pós-venda
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()

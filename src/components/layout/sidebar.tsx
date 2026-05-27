@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   Building2, Users, LayoutDashboard, UserCheck, BarChart3,
   DollarSign, Clock, AlertTriangle, ChevronDown, ChevronRight,
-  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText, Wrench
+  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText, Wrench, Inbox,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -78,7 +78,8 @@ const modules: NavModule[] = [
     enabled: true,
     moduloKey: 'MANUTENCAO',
     items: [
-      { label: 'Ordens de serviço', href: '/manutencoes', icon: Wrench },
+      { label: 'Ordens de serviço', href: '/manutencoes',               icon: Wrench },
+      { label: 'Solicitações',      href: '/manutencoes/solicitacoes',  icon: Inbox },
     ],
   },
   {
@@ -241,9 +242,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <div className="mt-1 space-y-0.5 pl-3.5">
                   {visibleItems.map((item) => {
                     const ItemIcon = item.icon
-                    const isActive = item.exact
+                    const matches = item.exact
                       ? pathname === item.href
                       : pathname === item.href || pathname.startsWith(item.href + '/')
+                    // Se um irmão tem path mais específico que também bate, ele vence
+                    const moreSpecificSibling = visibleItems.some(s =>
+                      s.href !== item.href
+                      && s.href.length > item.href.length
+                      && (pathname === s.href || pathname.startsWith(s.href + '/'))
+                    )
+                    const isActive = matches && !moreSpecificSibling
                     return (
                       <Link
                         key={item.href}

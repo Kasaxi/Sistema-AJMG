@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RefreshButton } from '@/components/ui/refresh-button'
-import { Plus, Search, Wrench, MapPin, User, CalendarDays, Clock } from 'lucide-react'
+import { Plus, Search, Wrench, MapPin, User, CalendarDays, Clock, Inbox } from 'lucide-react'
 import { listManutencoes } from '@/app/actions/manutencoes-actions'
+import { countSolicitacoesPendentes } from '@/app/actions/ordens-servico-actions'
 import type { Manutencao, ManutencaoStatus } from '@/types/manutencoes'
 import { MANUTENCAO_STATUS_LABEL } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
@@ -52,6 +53,7 @@ function formatRelative(iso: string) {
 
 export default function ManutencoesListPage() {
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([])
+  const [solicitacoesPendentes, setSolicitacoesPendentes] = useState(0)
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<'ALL' | ManutencaoStatus>('ALL')
@@ -59,8 +61,12 @@ export default function ManutencoesListPage() {
   const carregar = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await listManutencoes()
+      const [data, count] = await Promise.all([
+        listManutencoes(),
+        countSolicitacoesPendentes().catch(() => 0),
+      ])
       setManutencoes(data)
+      setSolicitacoesPendentes(count)
     } finally {
       setLoading(false)
     }
@@ -89,6 +95,22 @@ export default function ManutencoesListPage() {
         subtitle="Solicitações e atendimentos pós-entrega"
         actions={
           <div className="flex items-center gap-2">
+            <Link
+              href="/manutencoes/solicitacoes"
+              className={cn(
+                'relative inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-all',
+                solicitacoesPendentes > 0
+                  ? 'border-amber-300 bg-amber-50 text-amber-800 hover:border-amber-400'
+                  : 'border-[var(--line)] bg-white text-[var(--ink-soft)] hover:text-[var(--ink)]',
+              )}
+            >
+              <Inbox className="h-4 w-4" /> Solicitações
+              {solicitacoesPendentes > 0 && (
+                <span className="ml-0.5 inline-grid h-5 min-w-[20px] place-items-center rounded-full bg-amber-600 px-1.5 text-[10px] font-bold text-white">
+                  {solicitacoesPendentes}
+                </span>
+              )}
+            </Link>
             <RefreshButton onRefresh={carregar} />
             <Link href="/manutencoes/nova">
               <Button className="gap-1.5">

@@ -241,7 +241,8 @@ export async function listGastos(
 
   let q = supabase.from('gastos').select(GASTO_SELECT, { count: 'exact' })
 
-  if (filters.obra_id)       q = q.eq('obra_id', filters.obra_id)
+  if (filters.obra_id)        q = q.eq('obra_id', filters.obra_id)
+  if (filters.manutencao_id)  q = q.eq('manutencao_id', filters.manutencao_id)
   if (filters.categoria_ids && filters.categoria_ids.length > 0) {
     q = q.in('categoria_id', filters.categoria_ids)
   }
@@ -269,8 +270,15 @@ export async function listGastos(
 
 export async function createGasto(input: GastoInput): Promise<Gasto> {
   const { supabase, user } = await requireUser()
+  // XOR — exatamente um contexto. O DB também garante via CHECK constraint.
+  const obraId = input.obra_id ?? null
+  const manutencaoId = input.manutencao_id ?? null
+  if ((obraId && manutencaoId) || (!obraId && !manutencaoId)) {
+    throw new Error('Gasto precisa pertencer a uma obra OU manutenção — não ambos.')
+  }
   const row = {
-    obra_id: input.obra_id,
+    obra_id: obraId,
+    manutencao_id: manutencaoId,
     descricao: input.descricao.trim(),
     item_catalogo_id: input.item_catalogo_id ?? null,
     categoria_id: input.categoria_id,
@@ -288,28 +296,33 @@ export async function createGasto(input: GastoInput): Promise<Gasto> {
     .select(GASTO_SELECT)
     .single()
   if (error) throw new Error(error.message)
-  revalidatePath(`/obras/${input.obra_id}`)
+  if (obraId) revalidatePath(`/obras/${obraId}`)
+  if (manutencaoId) revalidatePath(`/manutencoes/${manutencaoId}`)
   return data as unknown as Gasto
 }
 
 export async function updateGasto(id: string, patch: Partial<GastoInput>): Promise<Gasto> {
   const { supabase } = await requireUser()
+  // Não permite trocar contexto via patch — preserva o existente.
+  const { obra_id: _o, manutencao_id: _m, ...rest } = patch
   const { data, error } = await supabase
     .from('gastos')
-    .update(patch)
+    .update(rest)
     .eq('id', id)
     .select(GASTO_SELECT)
     .single()
   if (error) throw new Error(error.message)
-  if (patch.obra_id) revalidatePath(`/obras/${patch.obra_id}`)
+  if (data?.obra_id) revalidatePath(`/obras/${data.obra_id}`)
+  if (data?.manutencao_id) revalidatePath(`/manutencoes/${data.manutencao_id}`)
   return data as unknown as Gasto
 }
 
-export async function deleteGasto(id: string, obraId?: string): Promise<void> {
+export async function deleteGasto(id: string, contexto?: { obraId?: string; manutencaoId?: string }): Promise<void> {
   const { supabase } = await requireUser()
   const { error } = await supabase.from('gastos').delete().eq('id', id)
   if (error) throw new Error(error.message)
-  if (obraId) revalidatePath(`/obras/${obraId}`)
+  if (contexto?.obraId) revalidatePath(`/obras/${contexto.obraId}`)
+  if (contexto?.manutencaoId) revalidatePath(`/manutencoes/${contexto.manutencaoId}`)
 }
 
 // ═══════════════════════════════════════════════════════════════

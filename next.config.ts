@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '100mb',
     },
+    // Next 16 introduziu um buffer de proxy separado (default 10MB) que
+    // trunca o body antes da server action ler. Sem isso, vídeos quebram
+    // com "Unexpected end of form". Alinhado ao limite das server actions.
+    proxyClientMaxBodySize: '100mb',
   },
 };
 

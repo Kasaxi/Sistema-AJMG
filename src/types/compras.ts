@@ -41,7 +41,9 @@ export interface ItemCatalogo {
 
 export interface Gasto {
   id: string
-  obra_id: string
+  /** XOR com manutencao_id — gasto pertence a obra OU manutenção. */
+  obra_id: string | null
+  manutencao_id: string | null
   descricao: string
   item_catalogo_id: string | null
   categoria_id: string
@@ -62,8 +64,10 @@ export interface Gasto {
   unidade?: UnidadeMedida | null
 }
 
+/** Exatamente um entre obra_id e manutencao_id deve estar preenchido (CHECK XOR no DB). */
 export interface GastoInput {
-  obra_id: string
+  obra_id?: string | null
+  manutencao_id?: string | null
   descricao: string
   categoria_id: string
   unidade_id: string
@@ -232,6 +236,7 @@ export interface CotacaoPublicView {
 
 export interface GastoFilters {
   obra_id?: string
+  manutencao_id?: string
   categoria_ids?: string[]
   fornecedor_id?: string
   data_inicio?: string
