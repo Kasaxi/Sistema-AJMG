@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   Building2, Users, LayoutDashboard, UserCheck, BarChart3,
   DollarSign, Clock, AlertTriangle, ChevronDown, ChevronRight,
-  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText
+  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText, Wrench
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -70,6 +70,15 @@ const modules: NavModule[] = [
     items: [
       { label: 'Orçamentos',   href: '/compras/cotacoes',     icon: FileText,  adminOnly: true },
       { label: 'Fornecedores', href: '/compras/fornecedores', icon: Building2 },
+    ],
+  },
+  {
+    label: 'Manutenções',
+    icon: Wrench,
+    enabled: true,
+    moduloKey: 'MANUTENCAO',
+    items: [
+      { label: 'Ordens de serviço', href: '/manutencoes', icon: Wrench },
     ],
   },
   {
