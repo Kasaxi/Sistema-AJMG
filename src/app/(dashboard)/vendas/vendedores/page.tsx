@@ -18,6 +18,7 @@ import type { Vendedor } from '@/types/vendas'
 import { formatDate, cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 import { useRouter } from 'next/navigation'
 
 function avatarTone(nome: string) {
@@ -346,7 +347,7 @@ export default function VendedoresPage() {
                 </p>
               </div>
             )}
-            {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}
+            <FormError message={error} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)} className="cursor-pointer rounded-xl border-[var(--line)]">

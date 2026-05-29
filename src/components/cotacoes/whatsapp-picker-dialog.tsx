@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Send, Trash2, Plus, AlertCircle, MessageCircle } from 'lucide-react'
+import { Send, Trash2, Plus, MessageCircle } from 'lucide-react'
 import {
   listWhatsappContatos,
   createWhatsappContato,
@@ -14,6 +14,7 @@ import {
 import type { WhatsappContato } from '@/types/whatsapp'
 import { formatWhatsappDisplay } from '@/types/whatsapp'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { FormError } from '@/components/ui/form-error'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -112,12 +113,7 @@ export function WhatsappPickerDialog({ open, onClose, mensagem }: Props) {
         </div>
 
         <div className="space-y-6 px-6 py-5">
-          {erro && (
-            <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-2.5 text-xs font-semibold text-rose-700">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{erro}</span>
-            </div>
-          )}
+          <FormError message={erro} />
 
           {/* Novo contato */}
           <section>

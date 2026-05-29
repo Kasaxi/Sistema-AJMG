@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { RefreshButton } from '@/components/ui/refresh-button'
 import {
-  ArrowLeft, AlertCircle, MapPin, User, CalendarDays, Clock,
+  ArrowLeft, MapPin, User, CalendarDays, Clock,
   Play, Check, X as XIcon, RotateCcw, Plus, Trash2, Circle, DollarSign, Pencil,
 } from 'lucide-react'
 import {
@@ -28,6 +28,7 @@ import { MANUTENCAO_STATUS_LABEL } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 
 function formatBRL(n: number): string {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -155,12 +156,7 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
       />
 
       <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-8">
-        {erro && (
-          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-3 text-sm font-semibold text-rose-700">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{erro}</span>
-          </div>
-        )}
+        <FormError message={erro} />
 
         {/* Status + transições */}
         <section className="rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6">

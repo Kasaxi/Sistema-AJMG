@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   ArrowLeft, Plus, Pencil, Trash2, Copy, Check, MessageCircle, Send, X as XIcon,
-  AlertCircle, CalendarDays, MapPin, FileText, Share2, Printer, RotateCcw, ChevronDown,
+  CalendarDays, MapPin, FileText, Share2, Printer, RotateCcw, ChevronDown,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -38,6 +38,7 @@ import { COTACAO_STATUS_LABEL, COTACAO_FORNECEDOR_STATUS_LABEL } from '@/types/c
 import { cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 
 const STATUS_TONE: Record<CotacaoStatus, string> = {
   RASCUNHO:   'bg-[var(--paper)] text-[var(--ink-soft)]',
@@ -241,12 +242,7 @@ export default function CotacaoDetailPage({ params }: { params: Promise<{ id: st
       />
 
       <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-8">
-        {erro && (
-          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-3 text-sm font-semibold text-rose-700">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{erro}</span>
-          </div>
-        )}
+        <FormError message={erro} />
 
         {/* Status + meta */}
         <section className="rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6">

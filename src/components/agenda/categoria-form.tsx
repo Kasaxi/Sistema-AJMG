@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { CategoriaAgenda } from '@/types/agenda'
 import { createCategoriaAgenda, updateCategoriaAgenda } from '@/app/actions/agenda-actions'
+import { FormError } from '@/components/ui/form-error'
 import { cn } from '@/lib/utils'
 
 interface CategoriaFormProps {
@@ -199,11 +200,7 @@ export function CategoriaForm({ open, onClose, initialData, onSaved, proximaOrde
             </div>
           </div>
 
-          {erro && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-              {erro}
-            </div>
-          )}
+          <FormError message={erro} />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>

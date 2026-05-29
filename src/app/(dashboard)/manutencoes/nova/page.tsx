@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  ArrowLeft, AlertCircle, Calendar as CalendarIcon, Plus, Trash2,
+  ArrowLeft, Calendar as CalendarIcon, Plus, Trash2,
   Paperclip, FileText, Image as ImageIcon, Video, X as XIcon,
 } from 'lucide-react'
 import {
@@ -24,6 +24,7 @@ import { uploadToSignedUrl, fileTypeManutencaoFromMime } from '@/lib/storage-upl
 import type { TipoManutencao, ClientePosVenda, ManutencaoItemInput } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { FormError } from '@/components/ui/form-error'
 
 interface ItemDraft extends ManutencaoItemInput {
   _id: string
@@ -217,12 +218,7 @@ export default function NovaManutencaoPage() {
       />
 
       <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-8">
-        {erro && (
-          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-3 text-sm font-semibold text-rose-700">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{erro}</span>
-          </div>
-        )}
+        <FormError message={erro} />
 
         {/* Identificação */}
         <section className="rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6">

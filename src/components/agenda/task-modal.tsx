@@ -19,6 +19,7 @@ import { AnexosUpload } from './anexos-upload'
 import { AnexosGallery } from './anexos-gallery'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 import { cn } from '@/lib/utils'
 
 interface TaskModalProps {
@@ -457,11 +458,7 @@ export function TaskModal({ open, onClose, initialData, categorias, pessoas, def
             </section>
           )}
 
-          {erro && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
-              {erro}
-            </div>
-          )}
+          <FormError message={erro} />
 
           <DialogFooter className="flex-row items-center justify-between gap-2 sm:flex-row sm:justify-between">
             <div>

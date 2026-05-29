@@ -14,6 +14,7 @@ import {
 import { formatDate, cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 
 interface LancarLeadsModalProps {
   open: boolean
@@ -151,11 +152,7 @@ export function LancarLeadsModal({ open, onClose, onSaved }: LancarLeadsModalPro
             </div>
           </div>
 
-          {error && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
+          <FormError message={error} />
 
           <Button
             type="submit"

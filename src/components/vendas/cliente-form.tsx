@@ -13,6 +13,7 @@ import type { Cliente, Vendedor } from '@/types/vendas'
 import { REPROVACAO_MOTIVOS, CONDICIONADO_MOTIVOS, AVALIACAO_LABELS } from '@/types/vendas'
 import { createCliente, updateCliente, getCidades } from '@/app/actions/vendas-actions'
 import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 import { cn } from '@/lib/utils'
 
 interface ClienteFormProps {
@@ -514,11 +515,7 @@ export function ClienteForm({ open, onClose, vendedores, initialData, defaultVen
             </div>
           </section>
 
-          {error && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
+          <FormError message={error} />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={loading} className="cursor-pointer rounded-xl border-[var(--line)]">

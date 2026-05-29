@@ -13,6 +13,7 @@ import {
 import { ImovelAnexos } from './imovel-anexos'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 import type { Imovel, ImovelCarteira, ImovelStatus, ImovelInput } from '@/types/imoveis'
 import { IMOVEL_STATUS_LABEL, STATUS_POR_TIPO } from '@/types/imoveis'
 import type { Vendedor } from '@/types/vendas'
@@ -307,9 +308,7 @@ export function ImovelForm({ open, onClose, initialData, carteiras, vendedores, 
             </p>
           )}
 
-          {erro && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">{erro}</div>
-          )}
+          <FormError message={erro} />
 
           <DialogFooter className="flex-row items-center justify-between gap-2 sm:justify-between">
             <div>

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { FormError } from '@/components/ui/form-error'
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react'
 import { listObras } from '@/app/actions/obras-actions'
 import {
@@ -162,11 +163,7 @@ export default function NovaCotacaoPage() {
       />
 
       <div className="mx-auto max-w-4xl space-y-5 px-4 py-6 sm:px-8">
-        {erro && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50/50 px-4 py-3 text-sm font-semibold text-rose-700">
-            {erro}
-          </div>
-        )}
+        <FormError message={erro} />
 
         {/* Cabeçalho da cotação */}
         <section className="rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6">

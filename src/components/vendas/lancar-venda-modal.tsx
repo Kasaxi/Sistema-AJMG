@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Loader2, Search, User } from 'lucide-react'
 import type { Cliente } from '@/types/vendas'
 import { getClientes, lancarVenda } from '@/app/actions/vendas-actions'
+import { useToast } from '@/components/ui/toast'
+import { FormError } from '@/components/ui/form-error'
 import { formatPhone } from '@/lib/utils'
 
 interface LancarVendaModalProps {
@@ -27,6 +29,7 @@ const TIPO_VENDA_OPTIONS: Array<{ value: 'NOVO' | 'USADO' | 'AMBOS'; label: stri
 
 export function LancarVendaModal({ open, onClose, onSaved, vendaToEdit }: LancarVendaModalProps) {
   const isEdit = !!vendaToEdit
+  const toast = useToast()
 
   const [search, setSearch] = useState('')
   const [results, setResults] = useState<Cliente[]>([])
@@ -88,6 +91,7 @@ export function LancarVendaModal({ open, onClose, onSaved, vendaToEdit }: Lancar
         valor_venda: valorNum,
         data_venda: data,
       })
+      toast.success(isEdit ? 'Venda atualizada' : 'Venda lançada')
       onSaved?.()
       onClose()
     } catch (err) {
@@ -219,11 +223,7 @@ export function LancarVendaModal({ open, onClose, onSaved, vendaToEdit }: Lancar
             </div>
           </div>
 
-          {error && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {error}
-            </div>
-          )}
+          <FormError message={error} />
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
