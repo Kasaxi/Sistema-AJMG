@@ -12,6 +12,7 @@ import {
   getLeadDistribuicao, upsertLeadDistribuicao, deleteLeadDistribuicao, getVendedores,
 } from '@/app/actions/vendas-actions'
 import { formatDate, cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 interface LancarLeadsModalProps {
   open: boolean
@@ -20,6 +21,7 @@ interface LancarLeadsModalProps {
 }
 
 export function LancarLeadsModal({ open, onClose, onSaved }: LancarLeadsModalProps) {
+  const confirm = useConfirm()
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [recentes, setRecentes] = useState<LeadDistribuicao[]>([])
 
@@ -70,7 +72,13 @@ export function LancarLeadsModal({ open, onClose, onSaved }: LancarLeadsModalPro
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir este lançamento?')) return
+    const ok = await confirm({
+      title: 'Excluir lançamento',
+      description: 'Excluir este lançamento de leads?',
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     try {
       await deleteLeadDistribuicao(id)
       await loadRecentes()

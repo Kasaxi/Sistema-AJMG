@@ -22,6 +22,7 @@ import {
 import type { Cliente, Vendedor, ClienteFilters } from '@/types/vendas'
 import { AVALIACAO_LABELS } from '@/types/vendas'
 import { formatPhone, formatDate, cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 const TIPO_IMOVEL_LABELS = { NOVO: 'Novo', USADO: 'Usado', AMBOS: 'Ambos' }
 const TIPO_RENDA_LABELS = { FORMAL: 'Formal', INFORMAL: 'Informal', AMBOS: 'Ambos' }
@@ -71,6 +72,7 @@ function FilterDropdown({ label, value, placeholder, options, onChange }: Filter
 }
 
 export default function ClientesPage() {
+  const confirm = useConfirm()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [cidades, setCidades] = useState<string[]>([])
@@ -131,7 +133,13 @@ export default function ClientesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Deseja excluir este cliente?')) return
+    const ok = await confirm({
+      title: 'Excluir cliente',
+      description: 'Deseja excluir este cliente?',
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     await deleteCliente(id)
     loadData()
   }

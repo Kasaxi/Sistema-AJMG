@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Loader2, Building2, Phone, Mail, FileText, Trash2 } from 'lucide-react'
 import type { Fornecedor, FornecedorInput } from '@/types/compras'
 import { createFornecedor, updateFornecedor, deleteFornecedor } from '@/app/actions/compras-actions'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 
 interface FornecedorFormProps {
@@ -32,6 +33,7 @@ function SectionHeader({ icon: Icon, label }: { icon: React.ElementType; label: 
 
 export function FornecedorForm({ open, onClose, initialData, onSaved }: FornecedorFormProps) {
   const editing = !!initialData
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
 
@@ -94,9 +96,15 @@ export function FornecedorForm({ open, onClose, initialData, onSaved }: Forneced
     })
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!initialData) return
-    if (!confirm(`Excluir o fornecedor "${initialData.nome}"? Esta ação não pode ser desfeita.`)) return
+    const ok = await confirm({
+      title: 'Excluir fornecedor',
+      description: `Excluir o fornecedor "${initialData.nome}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     startTransition(async () => {
       try {
         await deleteFornecedor(initialData.id)

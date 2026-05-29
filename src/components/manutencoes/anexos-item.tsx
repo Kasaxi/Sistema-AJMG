@@ -14,6 +14,7 @@ import {
 } from '@/app/actions/manutencoes-actions'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { uploadToSignedUrl, fileTypeManutencaoFromMime } from '@/lib/storage-upload'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import type { ManutencaoAnexo } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,7 @@ function formatSize(bytes: number | null): string | null {
 type Viewing = { anexo: ManutencaoAnexo; url: string; mime: string }
 
 export function AnexosItem({ manutencaoId, itemId, podeEditar }: Props) {
+  const confirm = useConfirm()
   const [anexos, setAnexos] = useState<ManutencaoAnexo[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -115,7 +117,13 @@ export function AnexosItem({ manutencaoId, itemId, podeEditar }: Props) {
   }
 
   async function remover(anexo: ManutencaoAnexo) {
-    if (!confirm(`Remover "${anexo.file_name}"?`)) return
+    const ok = await confirm({
+      title: 'Remover anexo',
+      description: `Remover "${anexo.file_name}"?`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    })
+    if (!ok) return
     setErro(null)
     try {
       await removerManutencaoAnexo(anexo.id)

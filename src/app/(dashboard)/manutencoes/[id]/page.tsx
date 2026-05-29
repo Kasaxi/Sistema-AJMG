@@ -26,6 +26,7 @@ import { SharePortalButton } from '@/components/manutencoes/share-portal-button'
 import { GastoForm } from '@/components/compras/gasto-form'
 import { MANUTENCAO_STATUS_LABEL } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 function formatBRL(n: number): string {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -51,6 +52,7 @@ function formatHora(time: string | null) {
 export default function ManutencaoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const confirm = useConfirm()
 
   const [m, setM] = useState<Manutencao | null>(null)
   const [itens, setItens] = useState<ManutencaoItem[]>([])
@@ -176,8 +178,14 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
               <button
                 type="button"
                 onClick={() => {
-                  if (!confirm('Apagar essa manutenção? Não pode ser desfeito.')) return
                   void (async () => {
+                    const ok = await confirm({
+                      title: 'Apagar manutenção',
+                      description: 'Apagar essa manutenção? Não pode ser desfeito.',
+                      confirmLabel: 'Apagar',
+                      destructive: true,
+                    })
+                    if (!ok) return
                     try {
                       await deleteManutencao(m.id)
                       router.push('/manutencoes')
@@ -399,6 +407,7 @@ function ItensSection({
   setErro: (s: string | null) => void
   podeEditar: boolean
 }) {
+  const confirm = useConfirm()
   const [adicionando, setAdicionando] = useState(false)
   const [novaDescricao, setNovaDescricao] = useState('')
   const [novoTipoId, setNovoTipoId] = useState<string>('')
@@ -438,7 +447,13 @@ function ItensSection({
   }
 
   async function remover(item: ManutencaoItem) {
-    if (!confirm(`Remover "${item.descricao}"?`)) return
+    const ok = await confirm({
+      title: 'Remover item',
+      description: `Remover "${item.descricao}"?`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    })
+    if (!ok) return
     setErro(null)
     try {
       await removeManutencaoItem(item.id)

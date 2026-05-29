@@ -10,6 +10,7 @@ import {
   listImovelAnexos, criarUploadUrlImovelAnexo, registrarImovelAnexo, removerImovelAnexo,
 } from '@/app/actions/imoveis-actions'
 import { uploadToSignedUrl, fileTypeImovelFromMime } from '@/lib/storage-upload'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import type { ImovelAnexo, ImovelAnexoTipo } from '@/types/imoveis'
 
 type AnexoComUrl = ImovelAnexo & { url: string }
@@ -32,6 +33,7 @@ function tipoView(a: AnexoComUrl): 'img' | 'pdf' | 'outro' {
 }
 
 export function ImovelAnexos({ imovelId, onChanged }: { imovelId: string; onChanged?: (resumo: Resumo[]) => void }) {
+  const confirm = useConfirm()
   const [anexos, setAnexos] = useState<AnexoComUrl[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -99,7 +101,13 @@ export function ImovelAnexos({ imovelId, onChanged }: { imovelId: string; onChan
   }
 
   async function remover(a: AnexoComUrl) {
-    if (!confirm(`Remover "${a.file_name}"?`)) return
+    const ok = await confirm({
+      title: 'Remover anexo',
+      description: `Remover "${a.file_name}"?`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    })
+    if (!ok) return
     setErro(null)
     try {
       await removerImovelAnexo(a.id)

@@ -13,6 +13,7 @@ import {
 } from '@/app/actions/whatsapp-contatos-actions'
 import type { WhatsappContato } from '@/types/whatsapp'
 import { formatWhatsappDisplay } from '@/types/whatsapp'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export function WhatsappPickerDialog({ open, onClose, mensagem }: Props) {
+  const confirm = useConfirm()
   const [contatos, setContatos] = useState<WhatsappContato[]>([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -70,7 +72,13 @@ export function WhatsappPickerDialog({ open, onClose, mensagem }: Props) {
   }
 
   async function remover(id: string, nome: string) {
-    if (!confirm(`Remover ${nome} dos contatos?`)) return
+    const ok = await confirm({
+      title: 'Remover contato',
+      description: `Remover ${nome} dos contatos?`,
+      confirmLabel: 'Remover',
+      destructive: true,
+    })
+    if (!ok) return
     setRemovendo(id)
     try {
       await deleteWhatsappContato(id)

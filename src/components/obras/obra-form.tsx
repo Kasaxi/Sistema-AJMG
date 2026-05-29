@@ -10,6 +10,7 @@ import { Loader2, MapPin, ClipboardList, CalendarDays, Wallet, Trash2 } from 'lu
 import type { Obra, ObraInput, ObraStatus } from '@/types/obras'
 import { OBRA_STATUS_LABELS } from '@/types/obras'
 import { createObra, updateObra, deleteObra } from '@/app/actions/obras-actions'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 
 interface ObraFormProps {
@@ -63,6 +64,7 @@ function Segmented<T extends string>({ options, value, onChange }: {
 
 export function ObraForm({ open, onClose, initialData, onSaved }: ObraFormProps) {
   const editing = !!initialData
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
 
@@ -141,9 +143,15 @@ export function ObraForm({ open, onClose, initialData, onSaved }: ObraFormProps)
     })
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!initialData) return
-    if (!confirm(`Excluir a obra "${initialData.nome}"? Esta ação não pode ser desfeita.`)) return
+    const ok = await confirm({
+      title: 'Excluir obra',
+      description: `Excluir a obra "${initialData.nome}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     startTransition(async () => {
       try {
         await deleteObra(initialData.id)

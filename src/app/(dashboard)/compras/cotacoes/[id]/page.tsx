@@ -36,6 +36,7 @@ import type {
 } from '@/types/compras'
 import { COTACAO_STATUS_LABEL, COTACAO_FORNECEDOR_STATUS_LABEL } from '@/types/compras'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 const STATUS_TONE: Record<CotacaoStatus, string> = {
   RASCUNHO:   'bg-[var(--paper)] text-[var(--ink-soft)]',
@@ -79,6 +80,7 @@ function buildWhatsappUrl(telefone: string | null, mensagem: string) {
 export default function CotacaoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const confirm = useConfirm()
 
   const [detail, setDetail] = useState<CotacaoDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -268,9 +270,16 @@ export default function CotacaoDetailPage({ params }: { params: Promise<{ id: st
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm('Cancelar esta cotação? Fornecedores que ainda não responderam não poderão mais responder.')) {
-                      void comAcao('cancelar', () => setCotacaoStatus(cotacao.id, 'CANCELADA'))
-                    }
+                    void (async () => {
+                      const ok = await confirm({
+                        title: 'Cancelar cotação',
+                        description: 'Cancelar esta cotação? Fornecedores que ainda não responderam não poderão mais responder.',
+                        confirmLabel: 'Cancelar cotação',
+                        cancelLabel: 'Voltar',
+                        destructive: true,
+                      })
+                      if (ok) void comAcao('cancelar', () => setCotacaoStatus(cotacao.id, 'CANCELADA'))
+                    })()
                   }}
                   className="cursor-pointer underline-offset-2 hover:text-rose-600 hover:underline"
                 >
@@ -280,16 +289,21 @@ export default function CotacaoDetailPage({ params }: { params: Promise<{ id: st
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm('Apagar esta cotação? Esta ação não pode ser desfeita.')) {
-                    void (async () => {
-                      try {
-                        await deleteCotacao(cotacao.id)
-                        router.push('/compras/cotacoes')
-                      } catch (e) {
-                        setErro(e instanceof Error ? e.message : 'Falhou.')
-                      }
-                    })()
-                  }
+                  void (async () => {
+                    const ok = await confirm({
+                      title: 'Apagar cotação',
+                      description: 'Apagar esta cotação? Esta ação não pode ser desfeita.',
+                      confirmLabel: 'Apagar',
+                      destructive: true,
+                    })
+                    if (!ok) return
+                    try {
+                      await deleteCotacao(cotacao.id)
+                      router.push('/compras/cotacoes')
+                    } catch (e) {
+                      setErro(e instanceof Error ? e.message : 'Falhou.')
+                    }
+                  })()
                 }}
                 className="cursor-pointer underline-offset-2 hover:text-rose-600 hover:underline"
               >
@@ -361,6 +375,7 @@ function ItensSection({
   onMudou: () => Promise<void>
   setErro: (s: string | null) => void
 }) {
+  const confirm = useConfirm()
   const [adicionando, setAdicionando] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
 
@@ -459,7 +474,13 @@ function ItensSection({
                           <button
                             type="button"
                             onClick={async () => {
-                              if (!confirm(`Remover "${it.descricao}"?`)) return
+                              const ok = await confirm({
+                                title: 'Remover item',
+                                description: `Remover "${it.descricao}"?`,
+                                confirmLabel: 'Remover',
+                                destructive: true,
+                              })
+                              if (!ok) return
                               try {
                                 await removeCotacaoItem(it.id)
                                 await onMudou()
@@ -763,6 +784,7 @@ function EnvelopeRow({
   onMudou: () => Promise<void>
   setErro: (s: string | null) => void
 }) {
+  const confirm = useConfirm()
   const [copiado, setCopiado] = useState(false)
   const url = buildPublicUrl(envelope.token)
   const mensagem = [
@@ -825,7 +847,13 @@ function EnvelopeRow({
           <button
             type="button"
             onClick={async () => {
-              if (!confirm(`Remover ${envelope.fornecedor?.nome ?? 'este fornecedor'} da cotação?`)) return
+              const ok = await confirm({
+                title: 'Remover fornecedor',
+                description: `Remover ${envelope.fornecedor?.nome ?? 'este fornecedor'} da cotação?`,
+                confirmLabel: 'Remover',
+                destructive: true,
+              })
+              if (!ok) return
               try {
                 await removeCotacaoFornecedor(envelope.id)
                 await onMudou()

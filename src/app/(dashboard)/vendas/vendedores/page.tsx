@@ -16,6 +16,7 @@ import { Plus, MoreHorizontal, Edit2, UserMinus, UserCheck, Loader2, Users, Sear
 import { getVendedores, createVendedor, createVendedorComAcesso, updateVendedor, deleteVendedor, getClientes, getCurrentProfile } from '@/app/actions/vendas-actions'
 import type { Vendedor } from '@/types/vendas'
 import { formatDate, cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useRouter } from 'next/navigation'
 
 function avatarTone(nome: string) {
@@ -26,6 +27,7 @@ function avatarTone(nome: string) {
 
 export default function VendedoresPage() {
   const router = useRouter()
+  const confirm = useConfirm()
   const [allowed, setAllowed] = useState<boolean | null>(null)
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [clienteCounts, setClienteCounts] = useState<Record<string, number>>({})
@@ -121,7 +123,13 @@ export default function VendedoresPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Deseja excluir este vendedor?')) return
+    const ok = await confirm({
+      title: 'Excluir vendedor',
+      description: 'Deseja excluir este vendedor?',
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     await deleteVendedor(id)
     loadData()
   }

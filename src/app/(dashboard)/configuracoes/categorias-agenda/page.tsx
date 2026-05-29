@@ -17,11 +17,13 @@ import {
 import { getCurrentProfile } from '@/app/actions/vendas-actions'
 import type { CategoriaAgenda } from '@/types/agenda'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 type CategoriaComContagem = CategoriaAgenda & { total_itens: number }
 
 export default function CategoriasAgendaPage() {
   const router = useRouter()
+  const confirm = useConfirm()
   const [categorias, setCategorias] = useState<CategoriaComContagem[]>([])
   const [loading, setLoading] = useState(true)
   const [acessoNegado, setAcessoNegado] = useState(false)
@@ -113,10 +115,16 @@ export default function CategoriasAgendaPage() {
   }
 
   async function excluir(c: CategoriaComContagem) {
-    const msg = c.total_itens > 0
+    const description = c.total_itens > 0
       ? `Esta categoria está em uso em ${c.total_itens} tarefa(s). Excluir não apaga as tarefas, mas elas ficarão sem categoria. Continuar?`
       : `Excluir "${c.nome}"?`
-    if (!confirm(msg)) return
+    const ok = await confirm({
+      title: 'Excluir categoria',
+      description,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
 
     setCategorias(prev => prev.filter(x => x.id !== c.id))
     startTransition(async () => {

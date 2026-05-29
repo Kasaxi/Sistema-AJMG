@@ -23,6 +23,7 @@ import { ClientePosVendaAutocomplete } from '@/components/manutencoes/cliente-au
 import { uploadToSignedUrl, fileTypeManutencaoFromMime } from '@/lib/storage-upload'
 import type { TipoManutencao, ClientePosVenda, ManutencaoItemInput } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 interface ItemDraft extends ManutencaoItemInput {
   _id: string
@@ -46,6 +47,7 @@ function iconePorMime(mime: string) {
 
 export default function NovaManutencaoPage() {
   const router = useRouter()
+  const confirm = useConfirm()
 
   // Catálogos
   const [tipos, setTipos] = useState<TipoManutencao[]>([])
@@ -164,8 +166,13 @@ export default function NovaManutencaoPage() {
       }
 
       if (falhas.length) {
-        // Manutenção foi criada; alerta falhas e segue pro detalhe.
-        alert(`Manutenção criada, mas alguns anexos falharam:\n${falhas.join('\n')}`)
+        // Manutenção foi criada; avisa falhas e segue pro detalhe.
+        await confirm({
+          title: 'Manutenção criada com avisos',
+          description: `Alguns anexos falharam:\n${falhas.join('\n')}`,
+          confirmLabel: 'Entendi',
+          hideCancel: true,
+        })
       }
       router.push(`/manutencoes/${manutencao.id}`)
     } catch (e) {

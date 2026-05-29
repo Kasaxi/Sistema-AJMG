@@ -21,6 +21,7 @@ import {
 } from '@/app/actions/vendas-actions'
 import type { Cliente, Vendedor } from '@/types/vendas'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 
 type VendasData = Awaited<ReturnType<typeof getVendasFinanceiro>>
 
@@ -97,6 +98,7 @@ function KPICard({ label, value, icon: Icon, tone, trend }: KPICardProps) {
 }
 
 export default function FinanceiroPage() {
+  const confirm = useConfirm()
   const [data, setData] = useState<VendasData | null>(null)
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,7 +155,13 @@ export default function FinanceiroPage() {
   }
 
   async function handleDeleteVenda(id: string) {
-    if (!confirm('Excluir esta venda? O cliente também será removido.')) return
+    const ok = await confirm({
+      title: 'Excluir venda',
+      description: 'Excluir esta venda? O cliente também será removido.',
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     await deleteCliente(id)
     loadData()
   }

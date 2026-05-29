@@ -5,6 +5,7 @@ import { FileText, Film, X, Loader2, Download, Trash2 } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import type { AgendaAnexo } from '@/types/agenda'
 import { deleteAgendaAnexo, getAnexoSignedUrl } from '@/app/actions/agenda-actions'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 
 interface AnexosGalleryProps {
@@ -105,6 +106,7 @@ function AnexoCard({ anexo, onClick, onDelete }: AnexoCardProps) {
 }
 
 export function AnexosGallery({ anexos, onChange }: AnexosGalleryProps) {
+  const confirm = useConfirm()
   const [viewing, setViewing] = useState<{ anexo: AgendaAnexo; url: string } | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
 
@@ -113,7 +115,13 @@ export function AnexosGallery({ anexos, onChange }: AnexosGalleryProps) {
   }
 
   async function handleDelete(anexo: AgendaAnexo) {
-    if (!confirm(`Excluir "${anexo.nome}"?`)) return
+    const ok = await confirm({
+      title: 'Excluir anexo',
+      description: `Excluir "${anexo.nome}"?`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     setDeleting(anexo.id)
     try {
       await deleteAgendaAnexo(anexo.id)

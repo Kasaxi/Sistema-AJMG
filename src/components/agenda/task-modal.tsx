@@ -17,6 +17,7 @@ import {
 } from '@/app/actions/agenda-actions'
 import { AnexosUpload } from './anexos-upload'
 import { AnexosGallery } from './anexos-gallery'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 
 interface TaskModalProps {
@@ -79,6 +80,7 @@ const NONE = '__none__'
 
 export function TaskModal({ open, onClose, initialData, categorias, pessoas, defaultDate, onSaved }: TaskModalProps) {
   const editing = !!initialData
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
   const [deleting, setDeleting] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -191,9 +193,15 @@ export function TaskModal({ open, onClose, initialData, categorias, pessoas, def
     if (novo) setItemAtual(novo)
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!initialData) return
-    if (!confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) return
+    const ok = await confirm({
+      title: 'Excluir tarefa',
+      description: 'Excluir esta tarefa? Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     setDeleting(true)
     setErro(null)
     startTransition(async () => {

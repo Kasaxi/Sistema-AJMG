@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Loader2, ClipboardList, Tag, Calculator, Building2, Trash2 } from 'lucide-react'
 import type { CategoriaCusto, Fornecedor, Gasto, GastoInput, UnidadeMedida } from '@/types/compras'
 import { createGasto, updateGasto, deleteGasto, upsertItemCatalogo } from '@/app/actions/compras-actions'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { ItemAutocomplete } from './item-autocomplete'
 
 const NONE = '__none__'
@@ -53,6 +54,7 @@ export function GastoForm({
   open, onClose, obraId, manutencaoId, initialData, categorias, unidades, fornecedores, onSaved,
 }: GastoFormProps) {
   const editing = !!initialData
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
 
@@ -147,9 +149,15 @@ export function GastoForm({
     })
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!initialData) return
-    if (!confirm(`Excluir o gasto "${initialData.descricao}"?`)) return
+    const ok = await confirm({
+      title: 'Excluir gasto',
+      description: `Excluir o gasto "${initialData.descricao}"?`,
+      confirmLabel: 'Excluir',
+      destructive: true,
+    })
+    if (!ok) return
     startTransition(async () => {
       try {
         await deleteGasto(initialData.id, { obraId, manutencaoId })
