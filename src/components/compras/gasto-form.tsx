@@ -10,6 +10,7 @@ import { Loader2, ClipboardList, Tag, Calculator, Building2, Trash2 } from 'luci
 import type { CategoriaCusto, Fornecedor, Gasto, GastoInput, UnidadeMedida } from '@/types/compras'
 import { createGasto, updateGasto, deleteGasto, upsertItemCatalogo } from '@/app/actions/compras-actions'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 import { ItemAutocomplete } from './item-autocomplete'
 
 const NONE = '__none__'
@@ -55,6 +56,7 @@ export function GastoForm({
 }: GastoFormProps) {
   const editing = !!initialData
   const confirm = useConfirm()
+  const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
 
@@ -141,6 +143,7 @@ export function GastoForm({
             console.warn('[gasto] upsert catálogo falhou:', err)
           }
         }
+        toast.success(editing ? 'Gasto atualizado' : 'Gasto lançado')
         onSaved?.()
         onClose()
       } catch (err) {
@@ -161,6 +164,7 @@ export function GastoForm({
     startTransition(async () => {
       try {
         await deleteGasto(initialData.id, { obraId, manutencaoId })
+        toast.success('Gasto excluído')
         onSaved?.()
         onClose()
       } catch (err) {

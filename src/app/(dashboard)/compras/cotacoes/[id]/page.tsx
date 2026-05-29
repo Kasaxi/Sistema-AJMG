@@ -37,6 +37,7 @@ import type {
 import { COTACAO_STATUS_LABEL, COTACAO_FORNECEDOR_STATUS_LABEL } from '@/types/compras'
 import { cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 
 const STATUS_TONE: Record<CotacaoStatus, string> = {
   RASCUNHO:   'bg-[var(--paper)] text-[var(--ink-soft)]',
@@ -81,6 +82,7 @@ export default function CotacaoDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params)
   const router = useRouter()
   const confirm = useConfirm()
+  const toast = useToast()
 
   const [detail, setDetail] = useState<CotacaoDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -278,7 +280,10 @@ export default function CotacaoDetailPage({ params }: { params: Promise<{ id: st
                         cancelLabel: 'Voltar',
                         destructive: true,
                       })
-                      if (ok) void comAcao('cancelar', () => setCotacaoStatus(cotacao.id, 'CANCELADA'))
+                      if (ok) void comAcao('cancelar', async () => {
+                        await setCotacaoStatus(cotacao.id, 'CANCELADA')
+                        toast.success('Cotação cancelada')
+                      })
                     })()
                   }}
                   className="cursor-pointer underline-offset-2 hover:text-rose-600 hover:underline"
@@ -299,6 +304,7 @@ export default function CotacaoDetailPage({ params }: { params: Promise<{ id: st
                     if (!ok) return
                     try {
                       await deleteCotacao(cotacao.id)
+                      toast.success('Cotação apagada')
                       router.push('/compras/cotacoes')
                     } catch (e) {
                       setErro(e instanceof Error ? e.message : 'Falhou.')

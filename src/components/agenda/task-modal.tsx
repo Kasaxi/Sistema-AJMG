@@ -18,6 +18,7 @@ import {
 import { AnexosUpload } from './anexos-upload'
 import { AnexosGallery } from './anexos-gallery'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 interface TaskModalProps {
@@ -81,6 +82,7 @@ const NONE = '__none__'
 export function TaskModal({ open, onClose, initialData, categorias, pessoas, defaultDate, onSaved }: TaskModalProps) {
   const editing = !!initialData
   const confirm = useConfirm()
+  const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [deleting, setDeleting] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -179,6 +181,7 @@ export function TaskModal({ open, onClose, initialData, categorias, pessoas, def
         } else {
           await createAgendaItem(payload)
         }
+        toast.success(editing ? 'Tarefa atualizada' : 'Tarefa criada')
         onSaved?.()
         onClose()
       } catch (err) {
@@ -207,6 +210,7 @@ export function TaskModal({ open, onClose, initialData, categorias, pessoas, def
     startTransition(async () => {
       try {
         await deleteAgendaItem(initialData.id)
+        toast.success('Tarefa excluída')
         onSaved?.()
         onClose()
       } catch (err) {

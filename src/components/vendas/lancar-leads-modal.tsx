@@ -13,6 +13,7 @@ import {
 } from '@/app/actions/vendas-actions'
 import { formatDate, cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 
 interface LancarLeadsModalProps {
   open: boolean
@@ -22,6 +23,7 @@ interface LancarLeadsModalProps {
 
 export function LancarLeadsModal({ open, onClose, onSaved }: LancarLeadsModalProps) {
   const confirm = useConfirm()
+  const toast = useToast()
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [recentes, setRecentes] = useState<LeadDistribuicao[]>([])
 
@@ -61,6 +63,7 @@ export function LancarLeadsModal({ open, onClose, onSaved }: LancarLeadsModalPro
     setError(null); setSaving(true)
     try {
       await upsertLeadDistribuicao(vendedorId, qty, data)
+      toast.success('Leads lançados')
       setQuantidade('')
       await loadRecentes()
       onSaved?.()
@@ -81,6 +84,7 @@ export function LancarLeadsModal({ open, onClose, onSaved }: LancarLeadsModalPro
     if (!ok) return
     try {
       await deleteLeadDistribuicao(id)
+      toast.success('Lançamento excluído')
       await loadRecentes()
       onSaved?.()
     } catch (err) {

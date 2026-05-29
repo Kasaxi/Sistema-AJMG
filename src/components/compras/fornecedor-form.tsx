@@ -9,6 +9,7 @@ import { Loader2, Building2, Phone, Mail, FileText, Trash2 } from 'lucide-react'
 import type { Fornecedor, FornecedorInput } from '@/types/compras'
 import { createFornecedor, updateFornecedor, deleteFornecedor } from '@/app/actions/compras-actions'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 interface FornecedorFormProps {
@@ -34,6 +35,7 @@ function SectionHeader({ icon: Icon, label }: { icon: React.ElementType; label: 
 export function FornecedorForm({ open, onClose, initialData, onSaved }: FornecedorFormProps) {
   const editing = !!initialData
   const confirm = useConfirm()
+  const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
 
@@ -88,6 +90,7 @@ export function FornecedorForm({ open, onClose, initialData, onSaved }: Forneced
         } else {
           await createFornecedor(payload)
         }
+        toast.success(editing ? 'Fornecedor atualizado' : 'Fornecedor criado')
         onSaved?.()
         onClose()
       } catch (err) {
@@ -108,6 +111,7 @@ export function FornecedorForm({ open, onClose, initialData, onSaved }: Forneced
     startTransition(async () => {
       try {
         await deleteFornecedor(initialData.id)
+        toast.success('Fornecedor excluído')
         onSaved?.()
         onClose()
       } catch (err) {

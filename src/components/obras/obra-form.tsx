@@ -11,6 +11,7 @@ import type { Obra, ObraInput, ObraStatus } from '@/types/obras'
 import { OBRA_STATUS_LABELS } from '@/types/obras'
 import { createObra, updateObra, deleteObra } from '@/app/actions/obras-actions'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 interface ObraFormProps {
@@ -65,6 +66,7 @@ function Segmented<T extends string>({ options, value, onChange }: {
 export function ObraForm({ open, onClose, initialData, onSaved }: ObraFormProps) {
   const editing = !!initialData
   const confirm = useConfirm()
+  const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
 
@@ -135,6 +137,7 @@ export function ObraForm({ open, onClose, initialData, onSaved }: ObraFormProps)
         } else {
           await createObra(payload)
         }
+        toast.success(editing ? 'Obra atualizada' : 'Obra criada')
         onSaved?.()
         onClose()
       } catch (err) {
@@ -155,6 +158,7 @@ export function ObraForm({ open, onClose, initialData, onSaved }: ObraFormProps)
     startTransition(async () => {
       try {
         await deleteObra(initialData.id)
+        toast.success('Obra excluída')
         onSaved?.()
         onClose()
       } catch (err) {

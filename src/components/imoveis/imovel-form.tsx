@@ -12,6 +12,7 @@ import {
 } from '@/app/actions/imoveis-actions'
 import { ImovelAnexos } from './imovel-anexos'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 import type { Imovel, ImovelCarteira, ImovelStatus, ImovelInput } from '@/types/imoveis'
 import { IMOVEL_STATUS_LABEL, STATUS_POR_TIPO } from '@/types/imoveis'
 import type { Vendedor } from '@/types/vendas'
@@ -77,6 +78,7 @@ function buildState(initialData?: Imovel | null, carteiraPadrao?: string | null)
 export function ImovelForm({ open, onClose, initialData, carteiras, vendedores, carteiraPadrao, onSaved }: Props) {
   const editing = !!initialData
   const confirm = useConfirm()
+  const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
   const [form, setForm] = useState(() => buildState(initialData, carteiraPadrao))
@@ -123,6 +125,7 @@ export function ImovelForm({ open, onClose, initialData, carteiras, vendedores, 
       try {
         if (editing && initialData) await updateImovel(initialData.id, payload)
         else await createImovel(payload)
+        toast.success(editing ? 'Imóvel atualizado' : 'Imóvel criado')
         onSaved?.()
         onClose()
       } catch (e) {
@@ -143,6 +146,7 @@ export function ImovelForm({ open, onClose, initialData, carteiras, vendedores, 
     startTransition(async () => {
       try {
         await deleteImovel(initialData.id)
+        toast.success('Imóvel excluído')
         onSaved?.()
         onClose()
       } catch (e) {

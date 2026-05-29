@@ -12,6 +12,7 @@ import {
 import type { Cliente, Vendedor } from '@/types/vendas'
 import { REPROVACAO_MOTIVOS, CONDICIONADO_MOTIVOS, AVALIACAO_LABELS } from '@/types/vendas'
 import { createCliente, updateCliente, getCidades } from '@/app/actions/vendas-actions'
+import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 interface ClienteFormProps {
@@ -161,6 +162,7 @@ function MotivoSelect({
 
 export function ClienteForm({ open, onClose, vendedores, initialData, defaultVendedorId }: ClienteFormProps) {
   const isEdit = !!initialData
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cidades, setCidades] = useState<string[]>([])
@@ -242,6 +244,7 @@ export function ClienteForm({ open, onClose, vendedores, initialData, defaultVen
       } else {
         await createCliente(payload)
       }
+      toast.success(isEdit ? 'Cliente atualizado' : 'Cliente criado')
       onClose()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar cliente')

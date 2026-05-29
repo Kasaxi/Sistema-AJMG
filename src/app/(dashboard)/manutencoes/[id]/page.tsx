@@ -27,6 +27,7 @@ import { GastoForm } from '@/components/compras/gasto-form'
 import { MANUTENCAO_STATUS_LABEL } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 
 function formatBRL(n: number): string {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -53,6 +54,7 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
   const { id } = use(params)
   const router = useRouter()
   const confirm = useConfirm()
+  const toast = useToast()
 
   const [m, setM] = useState<Manutencao | null>(null)
   const [itens, setItens] = useState<ManutencaoItem[]>([])
@@ -188,6 +190,7 @@ export default function ManutencaoDetailPage({ params }: { params: Promise<{ id:
                     if (!ok) return
                     try {
                       await deleteManutencao(m.id)
+                      toast.success('Manutenção apagada')
                       router.push('/manutencoes')
                     } catch (e) {
                       setErro(e instanceof Error ? e.message : 'Falhou.')

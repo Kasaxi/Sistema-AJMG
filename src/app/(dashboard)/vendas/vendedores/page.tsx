@@ -17,6 +17,7 @@ import { getVendedores, createVendedor, createVendedorComAcesso, updateVendedor,
 import type { Vendedor } from '@/types/vendas'
 import { formatDate, cn } from '@/lib/utils'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toast'
 import { useRouter } from 'next/navigation'
 
 function avatarTone(nome: string) {
@@ -28,6 +29,7 @@ function avatarTone(nome: string) {
 export default function VendedoresPage() {
   const router = useRouter()
   const confirm = useConfirm()
+  const toast = useToast()
   const [allowed, setAllowed] = useState<boolean | null>(null)
   const [vendedores, setVendedores] = useState<Vendedor[]>([])
   const [clienteCounts, setClienteCounts] = useState<Record<string, number>>({})
@@ -103,10 +105,13 @@ export default function VendedoresPage() {
     try {
       if (editingId) {
         await updateVendedor(editingId, { nome, email: email.trim() || null })
+        toast.success('Vendedor atualizado')
       } else if (email.trim()) {
         await createVendedorComAcesso(nome, email, senha)
+        toast.success('Vendedor criado com acesso')
       } else {
         await createVendedor(nome)
+        toast.success('Vendedor criado')
       }
       setModalOpen(false)
       loadData()
@@ -131,6 +136,7 @@ export default function VendedoresPage() {
     })
     if (!ok) return
     await deleteVendedor(id)
+    toast.success('Vendedor excluído')
     loadData()
   }
 
