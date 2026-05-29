@@ -7,7 +7,7 @@ import {
   Building2, Users, LayoutDashboard, UserCheck, BarChart3,
   DollarSign, Clock, AlertTriangle, ChevronDown, ChevronRight,
   LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText, Wrench, Inbox, Home,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Tag, Boxes,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -95,11 +95,12 @@ const modules: NavModule[] = [
   {
     label: 'Financeiro',
     icon: DollarSign,
-    enabled: false,
+    enabled: true,
     moduloKey: 'FINANCEIRO',
     items: [
-      { label: 'Lançamentos', href: '/financeiro/lancamentos', icon: DollarSign },
-      { label: 'DRE', href: '/financeiro/dre', icon: BarChart3 },
+      { label: 'Lançamentos', href: '/financeiro', icon: DollarSign, exact: true },
+      { label: 'Centros de custo', href: '/financeiro/centros-custo', icon: Boxes, adminOnly: true },
+      { label: 'Categorias', href: '/financeiro/categorias', icon: Tag, adminOnly: true },
     ],
   },
   {
