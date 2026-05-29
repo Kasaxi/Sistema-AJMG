@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils'
 import {
   Building2, Users, LayoutDashboard, UserCheck, BarChart3,
   DollarSign, Clock, AlertTriangle, ChevronDown, ChevronRight,
-  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText, Wrench, Inbox,
+  LogOut, Settings, Menu, X, Calendar, Hammer, ShoppingCart, FileText, Wrench, Inbox, Home,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -83,6 +84,15 @@ const modules: NavModule[] = [
     ],
   },
   {
+    label: 'Imóveis',
+    icon: Home,
+    enabled: true,
+    moduloKey: 'IMOVEIS',
+    items: [
+      { label: 'Inventário', href: '/imoveis', icon: Home, exact: true },
+    ],
+  },
+  {
     label: 'Financeiro',
     icon: DollarSign,
     enabled: false,
@@ -114,7 +124,7 @@ const modules: NavModule[] = [
   },
 ]
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, colapsada = false, onToggle }: { onNavigate?: () => void; colapsada?: boolean; onToggle?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
   const [openModules, setOpenModules] = useState<string[]>(['Vendas'])
@@ -153,28 +163,72 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       className="flex h-full flex-col text-white"
       style={{ backgroundColor: 'var(--sidebar-bg, #0E1430)' }}
     >
-      {/* Logo */}
-      <div className="px-5 pb-3 pt-7">
-        <Link href="/vendas/clientes" className="group flex items-center gap-3">
+      {/* Logo + toggle de recolher */}
+      <div className={cn('flex items-center gap-2 pb-3 pt-7', colapsada ? 'flex-col px-2' : 'px-5')}>
+        <Link href="/vendas/clientes" onClick={onNavigate} className="group flex min-w-0 flex-1 items-center gap-3">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[var(--brand-bright)] shadow-lg shadow-[var(--brand-bright)]/25 transition-transform group-hover:scale-105">
             <Building2 className="h-5 w-5 text-white" strokeWidth={2.2} />
           </div>
-          <div className="min-w-0">
-            <p className="truncate font-display text-[15px] font-bold leading-tight tracking-tight text-white">
-              Sistema de Gestão
-            </p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
-              Empresarial
-            </p>
-          </div>
+          {!colapsada && (
+            <div className="min-w-0">
+              <p className="truncate font-display text-[15px] font-bold leading-tight tracking-tight text-white">
+                Sistema de Gestão
+              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+                Empresarial
+              </p>
+            </div>
+          )}
         </Link>
+        {/* Botão recolher/expandir — só desktop */}
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            aria-label={colapsada ? 'Expandir menu' : 'Recolher menu'}
+            title={colapsada ? 'Expandir menu' : 'Recolher menu'}
+            className="hidden h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-lg text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white lg:grid"
+          >
+            {colapsada ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="scrollbar-slim min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {renderModules.map((mod) => {
           const ModIcon = mod.icon
           const visibleItems = mod.items.filter(item => !item.adminOnly || isAdmin)
+
+          // ── Modo recolhido: só o ícone do módulo (navega pro 1º item) ──
+          if (colapsada) {
+            const primeiro = visibleItems[0]
+            const ativo = mod.items.some(i => pathname === i.href || pathname.startsWith(i.href + '/'))
+            if (!mod.enabled || !primeiro) {
+              return (
+                <div
+                  key={mod.label}
+                  title={mod.enabled ? mod.label : `${mod.label} (em breve)`}
+                  className={cn('grid h-10 w-full place-items-center rounded-xl', mod.enabled ? 'text-white/40' : 'text-white/20')}
+                >
+                  <ModIcon className="h-[1.15rem] w-[1.15rem]" strokeWidth={2.2} />
+                </div>
+              )
+            }
+            return (
+              <Link
+                key={mod.label}
+                href={primeiro.href}
+                onClick={onNavigate}
+                title={mod.label}
+                className={cn(
+                  'grid h-10 w-full place-items-center rounded-xl transition-colors',
+                  ativo ? 'bg-[var(--brand-bright)] text-white shadow-lg shadow-[var(--brand-bright)]/25' : 'text-white/60 hover:bg-white/[0.06] hover:text-white',
+                )}
+              >
+                <ModIcon className="h-[1.15rem] w-[1.15rem]" strokeWidth={2.2} />
+              </Link>
+            )
+          }
 
           // Módulo habilitado com 1 sub-item visível → vira link direto
           if (mod.enabled && visibleItems.length === 1) {
@@ -280,27 +334,41 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="space-y-1 px-3 pb-5 pt-2">
         <Link
           href="/configuracoes"
-          className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/50 transition-all duration-200 hover:bg-white/[0.04] hover:text-white"
+          onClick={onNavigate}
+          title="Configurações"
+          className={cn(
+            'flex items-center gap-3 rounded-xl py-2 text-sm text-white/50 transition-all duration-200 hover:bg-white/[0.04] hover:text-white',
+            colapsada ? 'justify-center px-0' : 'px-3',
+          )}
         >
-          <Settings className="h-[1.05rem] w-[1.05rem]" strokeWidth={2.2} />
-          Configurações
+          <Settings className="h-[1.05rem] w-[1.05rem] shrink-0" strokeWidth={2.2} />
+          {!colapsada && 'Configurações'}
         </Link>
         <button
           onClick={handleLogout}
-          className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/50 transition-all duration-200 hover:bg-rose-500/10 hover:text-rose-300"
+          title="Sair"
+          className={cn(
+            'flex w-full cursor-pointer items-center gap-3 rounded-xl py-2 text-sm text-white/50 transition-all duration-200 hover:bg-rose-500/10 hover:text-rose-300',
+            colapsada ? 'justify-center px-0' : 'px-3',
+          )}
         >
-          <LogOut className="h-[1.05rem] w-[1.05rem]" strokeWidth={2.2} />
-          Sair
+          <LogOut className="h-[1.05rem] w-[1.05rem] shrink-0" strokeWidth={2.2} />
+          {!colapsada && 'Sair'}
         </button>
       </div>
     </div>
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ colapsada = false, onToggle }: { colapsada?: boolean; onToggle?: () => void }) {
   return (
-    <aside className="fixed inset-y-0 z-50 hidden lg:flex lg:w-64 lg:flex-col">
-      <SidebarContent />
+    <aside
+      className={cn(
+        'fixed inset-y-0 z-50 hidden lg:flex lg:flex-col transition-[width] duration-200',
+        colapsada ? 'lg:w-16' : 'lg:w-64',
+      )}
+    >
+      <SidebarContent colapsada={colapsada} onToggle={onToggle} />
     </aside>
   )
 }
@@ -319,12 +387,12 @@ export function MobileSidebar() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 h-dvh lg:hidden">
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"
+            className="fixed inset-0 h-dvh bg-black/60 backdrop-blur-sm animate-in fade-in"
             onClick={() => setOpen(false)}
           />
-          <div className="fixed inset-y-0 left-0 z-50 w-72 shadow-2xl animate-in slide-in-from-left duration-300 motion-reduce:animate-none">
+          <div className="fixed inset-y-0 left-0 z-50 flex h-dvh w-72 flex-col shadow-2xl animate-in slide-in-from-left duration-300 motion-reduce:animate-none">
             <SidebarContent onNavigate={() => setOpen(false)} />
             <button
               onClick={() => setOpen(false)}

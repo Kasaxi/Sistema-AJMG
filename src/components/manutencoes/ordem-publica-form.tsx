@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   criarOrdemServicoPublica,
-  uploadOrdemAnexoPublico,
+  criarUploadUrlOrdemAnexo,
+  registrarOrdemAnexo,
 } from '@/app/actions/ordens-servico-actions'
+import { uploadToSignedUrl, fileTypeOrdemFromMime } from '@/lib/storage-upload'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -82,14 +84,22 @@ export function OrdemPublicaForm({ token, defaults }: Props) {
         descricao: descricao.trim(),
       })
 
-      // Sobe anexos em paralelo, ignorando falhas individuais
+      // Sobe anexos direto pro Supabase via signed URL, ignorando falhas individuais
       const falhas: string[] = []
       for (const file of arquivos) {
         try {
-          const fd = new FormData()
-          fd.append('ordem_id', id)
-          fd.append('file', file)
-          await uploadOrdemAnexoPublico(fd)
+          const { bucket, path, token: upToken } = await criarUploadUrlOrdemAnexo({
+            ordemId: id,
+            fileName: file.name,
+          })
+          await uploadToSignedUrl(bucket, path, upToken, file)
+          await registrarOrdemAnexo({
+            ordemId: id,
+            path,
+            fileName: file.name,
+            fileType: fileTypeOrdemFromMime(file.type),
+            sizeBytes: file.size,
+          })
         } catch (e) {
           falhas.push(`${file.name}: ${e instanceof Error ? e.message : 'erro'}`)
         }

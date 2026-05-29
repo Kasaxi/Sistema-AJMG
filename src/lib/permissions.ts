@@ -6,6 +6,7 @@ export type AppRole = 'ADMIN' | 'VENDEDOR' | 'COLABORADOR'
 
 export type AppModulo =
   | 'AGENDA' | 'OBRAS' | 'COMPRAS' | 'RH' | 'FINANCEIRO' | 'COBRANCA' | 'VENDAS'
+  | 'MANUTENCAO' | 'IMOVEIS'
 
 export interface CurrentProfile {
   id: string

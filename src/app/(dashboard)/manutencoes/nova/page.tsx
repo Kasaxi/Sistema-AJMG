@@ -16,9 +16,11 @@ import {
   createManutencao,
   listTiposManutencao,
   listProfilesAtivosComManutencao,
-  uploadManutencaoAnexo,
+  criarUploadUrlManutencaoAnexo,
+  registrarManutencaoAnexo,
 } from '@/app/actions/manutencoes-actions'
 import { ClientePosVendaAutocomplete } from '@/components/manutencoes/cliente-autocomplete'
+import { uploadToSignedUrl, fileTypeManutencaoFromMime } from '@/lib/storage-upload'
 import type { TipoManutencao, ClientePosVenda, ManutencaoItemInput } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
 
@@ -40,11 +42,6 @@ function iconePorMime(mime: string) {
   if (mime.startsWith('image/')) return { Icon: ImageIcon, cor: 'text-emerald-700' }
   if (mime.startsWith('video/')) return { Icon: Video,     cor: 'text-violet-700' }
   return { Icon: FileText, cor: 'text-[var(--ink-soft)]' }
-}
-function fileTypeFromMime(mime: string): 'FOTO_DEPOIS' | 'OUTRO' | 'DOCUMENTO' {
-  if (mime.startsWith('image/')) return 'FOTO_DEPOIS'
-  if (mime.startsWith('video/')) return 'OUTRO'
-  return 'DOCUMENTO'
 }
 
 export default function NovaManutencaoPage() {
@@ -137,7 +134,8 @@ export default function NovaManutencaoPage() {
         criar_na_agenda: criarNaAgenda,
       })
 
-      // Upload de anexos pós-save (mapeia draft → item criado pela ordem)
+      // Upload de anexos pós-save (mapeia draft → item criado pela ordem).
+      // Browser sobe direto pro Supabase via signed URL.
       const falhas: string[] = []
       for (let i = 0; i < itensValidos.length; i++) {
         const draft = itensValidos[i]
@@ -145,12 +143,20 @@ export default function NovaManutencaoPage() {
         if (!criado || draft.arquivos.length === 0) continue
         for (const file of draft.arquivos) {
           try {
-            const fd = new FormData()
-            fd.append('manutencao_id', manutencao.id)
-            fd.append('item_id', criado.id)
-            fd.append('file_type', fileTypeFromMime(file.type))
-            fd.append('file', file)
-            await uploadManutencaoAnexo(fd)
+            const { bucket, path, token } = await criarUploadUrlManutencaoAnexo({
+              manutencaoId: manutencao.id,
+              itemId: criado.id,
+              fileName: file.name,
+            })
+            await uploadToSignedUrl(bucket, path, token, file)
+            await registrarManutencaoAnexo({
+              manutencaoId: manutencao.id,
+              itemId: criado.id,
+              path,
+              fileName: file.name,
+              fileType: fileTypeManutencaoFromMime(file.type),
+              sizeBytes: file.size,
+            })
           } catch (e) {
             falhas.push(`${file.name}: ${e instanceof Error ? e.message : 'erro'}`)
           }

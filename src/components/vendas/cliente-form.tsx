@@ -24,6 +24,34 @@ interface ClienteFormProps {
 
 const STATUS_NOVO_OPTIONS = Object.entries(AVALIACAO_LABELS).map(([value, label]) => ({ value, label }))
 
+// Monta o estado do form a partir do cliente em edição (ou vazio pra criação).
+// Extraído porque precisa rodar tanto na montagem quanto toda vez que o modal
+// reabre com outro cliente — senão o form abre em branco ao editar.
+function toFormState(initialData?: Cliente | null, defaultVendedorId?: string) {
+  return {
+    nome: initialData?.nome ?? '',
+    telefone_whatsapp: initialData?.telefone_whatsapp ?? '',
+    cpf: initialData?.cpf ?? '',
+    cidade: initialData?.cidade ?? '',
+    vendedor_id: initialData?.vendedor_id ?? defaultVendedorId ?? '',
+    tipo_imovel: initialData?.tipo_imovel ?? 'AMBOS',
+    tipo_cliente: initialData?.tipo_cliente ?? 'NOVO',
+    tipo_renda: initialData?.tipo_renda ?? '',
+    status_novo: initialData?.status_novo ?? 'NAO_AVALIADO',
+    status_usado: initialData?.status_usado ?? 'NAO_AVALIADO',
+    motivo_reprovacao: initialData?.motivo_reprovacao ?? '',
+    motivo_reprovacao_usado: initialData?.motivo_reprovacao_usado ?? '',
+    observacoes: initialData?.observacoes ?? '',
+    valor_venda: initialData?.valor_venda ? String(initialData.valor_venda) : '',
+    valor_simulacao_novo: initialData?.valor_simulacao_novo ? String(initialData.valor_simulacao_novo) : '',
+    valor_simulacao_usado: initialData?.valor_simulacao_usado ? String(initialData.valor_simulacao_usado) : '',
+    data_venda: initialData?.data_venda ? initialData.data_venda.split('T')[0] : '',
+    data_avaliacao: initialData?.data_avaliacao
+      ? initialData.data_avaliacao.split('T')[0]
+      : new Date().toISOString().split('T')[0],
+  }
+}
+
 // ─── Componentes internos ────────────────────────────────────────────────────
 
 function SectionHeader({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
@@ -137,30 +165,13 @@ export function ClienteForm({ open, onClose, vendedores, initialData, defaultVen
   const [error, setError] = useState<string | null>(null)
   const [cidades, setCidades] = useState<string[]>([])
 
-  const [form, setForm] = useState({
-    nome: initialData?.nome ?? '',
-    telefone_whatsapp: initialData?.telefone_whatsapp ?? '',
-    cpf: initialData?.cpf ?? '',
-    cidade: initialData?.cidade ?? '',
-    vendedor_id: initialData?.vendedor_id ?? defaultVendedorId ?? '',
-    // Sempre AMBOS para novos clientes (UI mostra status novo + usado lado a lado);
-    // preserva o valor original ao editar dados legados.
-    tipo_imovel: initialData?.tipo_imovel ?? 'AMBOS',
-    tipo_cliente: initialData?.tipo_cliente ?? 'NOVO',
-    tipo_renda: initialData?.tipo_renda ?? '',
-    status_novo: initialData?.status_novo ?? 'NAO_AVALIADO',
-    status_usado: initialData?.status_usado ?? 'NAO_AVALIADO',
-    motivo_reprovacao: initialData?.motivo_reprovacao ?? '',
-    motivo_reprovacao_usado: initialData?.motivo_reprovacao_usado ?? '',
-    observacoes: initialData?.observacoes ?? '',
-    valor_venda: initialData?.valor_venda ? String(initialData.valor_venda) : '',
-    valor_simulacao_novo: initialData?.valor_simulacao_novo ? String(initialData.valor_simulacao_novo) : '',
-    valor_simulacao_usado: initialData?.valor_simulacao_usado ? String(initialData.valor_simulacao_usado) : '',
-    data_venda: initialData?.data_venda ? initialData.data_venda.split('T')[0] : '',
-    data_avaliacao: initialData?.data_avaliacao
-      ? initialData.data_avaliacao.split('T')[0]
-      : new Date().toISOString().split('T')[0],
-  })
+  const [form, setForm] = useState(() => toFormState(initialData, defaultVendedorId))
+
+  // Re-popula o form sempre que o modal abre (com o cliente atual, ou vazio pra criação).
+  // Sem isso, o useState inicial só vale na 1ª montagem e o form abre em branco ao editar.
+  useEffect(() => {
+    if (open) setForm(toFormState(initialData, defaultVendedorId))
+  }, [open, initialData, defaultVendedorId])
 
   // Carrega cidades existentes só quando o modal abre.
   useEffect(() => {

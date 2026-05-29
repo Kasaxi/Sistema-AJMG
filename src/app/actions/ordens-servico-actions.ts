@@ -24,13 +24,6 @@ async function requireUser() {
   return { supabase, user }
 }
 
-function fileTypeFromMime(mime: string): OrdemAnexoTipo {
-  if (mime.startsWith('image/')) return 'FOTO'
-  if (mime.startsWith('video/')) return 'VIDEO'
-  if (mime === 'application/pdf') return 'DOCUMENTO'
-  return 'OUTRO'
-}
-
 function sanitizeFileName(name: string): string {
   return name.replace(/[^\w.\-]/g, '_').slice(0, 80)
 }
@@ -375,48 +368,50 @@ export async function criarOrdemServicoPublica(
  * passar o id da ordem que acabou de criar. Sem checagem extra — o pior caso
  * é alguém anexar lixo numa O.S. PENDENTE conhecida (acesso interno só após
  * aceite, anexos podem ser auditados ou descartados).
+ *
+ * Upload direto: o browser sobe o arquivo no Supabase via signed URL (sem
+ * passar pela função). Aqui só geramos a permissão e, depois, registramos.
  */
-export async function uploadOrdemAnexoPublico(
-  formData: FormData,
-): Promise<OrdemServicoAnexo> {
-  const ordemId = String(formData.get('ordem_id') ?? '')
-  const file = formData.get('file')
-
-  if (!ordemId) throw new Error('ordem_id ausente.')
-  if (!(file instanceof File)) throw new Error('Arquivo ausente.')
-  if (file.size > 100 * 1024 * 1024) throw new Error('Arquivo maior que 100 MB.')
-
+export async function criarUploadUrlOrdemAnexo(input: {
+  ordemId: string
+  fileName: string
+}): Promise<{ bucket: string; path: string; token: string }> {
+  if (!input.ordemId) throw new Error('ordem_id ausente.')
   const admin = createAdminClient()
 
-  // Confirma que a ordem existe e está pendente
   const { data: ordem } = await admin
     .from('ordens_servico')
     .select('id, status')
-    .eq('id', ordemId)
+    .eq('id', input.ordemId)
     .maybeSingle()
   if (!ordem) throw new Error('Solicitação não encontrada.')
   if (ordem.status !== 'PENDENTE') throw new Error('Solicitação já foi decidida — não aceita mais anexos.')
 
-  const sanitized = sanitizeFileName(file.name)
-  const path = `${ordemId}/${Date.now()}-${sanitized}`
-  const buffer = await file.arrayBuffer()
-
-  const { error: upErr } = await admin.storage
+  const sanitized = sanitizeFileName(input.fileName)
+  const path = `${input.ordemId}/${Date.now()}-${sanitized}`
+  const { data, error } = await admin.storage
     .from('ordem-servico-anexos')
-    .upload(path, buffer, {
-      contentType: file.type || 'application/octet-stream',
-      upsert: false,
-    })
-  if (upErr) throw new Error(`Falha no upload: ${upErr.message}`)
+    .createSignedUploadUrl(path)
+  if (error || !data) throw new Error(error?.message ?? 'Falha ao preparar upload.')
+  return { bucket: 'ordem-servico-anexos', path: data.path, token: data.token }
+}
 
+export async function registrarOrdemAnexo(input: {
+  ordemId: string
+  path: string
+  fileName: string
+  fileType: OrdemAnexoTipo
+  sizeBytes: number
+}): Promise<OrdemServicoAnexo> {
+  const admin = createAdminClient()
   const { data, error } = await admin
     .from('ordem_servico_anexos')
     .insert({
-      ordem_id: ordemId,
-      file_path: path,
-      file_name: file.name,
-      file_type: fileTypeFromMime(file.type),
-      size_bytes: file.size,
+      ordem_id: input.ordemId,
+      file_path: input.path,
+      file_name: input.fileName,
+      file_type: input.fileType,
+      size_bytes: input.sizeBytes,
     })
     .select('*')
     .single()

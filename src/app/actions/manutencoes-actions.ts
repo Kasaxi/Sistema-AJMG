@@ -424,51 +424,59 @@ export async function listManutencaoAnexos(
   return (data ?? []) as ManutencaoAnexo[]
 }
 
-export async function uploadManutencaoAnexo(formData: FormData): Promise<ManutencaoAnexo> {
-  const { supabase, user } = await requireUser()
-  const manutencaoId = String(formData.get('manutencao_id') ?? '')
-  const itemIdRaw = String(formData.get('item_id') ?? '')
-  const itemId = itemIdRaw || null
-  const tipo = (String(formData.get('file_type') ?? 'OUTRO')) as ManutencaoAnexo['file_type']
-  const legenda = String(formData.get('legenda') ?? '').trim() || null
-  const file = formData.get('file')
+/**
+ * Gera um signed upload URL pro browser subir o anexo DIRETO no Supabase
+ * (sem passar o arquivo pela função Vercel). Respeita as RLS de INSERT do
+ * bucket porque é gerado com o client autenticado do usuário.
+ */
+export async function criarUploadUrlManutencaoAnexo(input: {
+  manutencaoId: string
+  itemId?: string | null
+  fileName: string
+}): Promise<{ bucket: string; path: string; token: string }> {
+  const { supabase } = await requireUser()
+  if (!input.manutencaoId) throw new Error('manutencao_id ausente.')
 
-  if (!manutencaoId) throw new Error('manutencao_id ausente.')
-  if (!(file instanceof File)) throw new Error('Arquivo ausente.')
-  if (file.size > 100 * 1024 * 1024) throw new Error('Arquivo maior que 100 MB.')
-
-  const arrayBuffer = await file.arrayBuffer()
-  const sanitized = file.name.replace(/[^\w.\-]/g, '_').slice(0, 80)
-  // Path inclui item_id quando vinculado a item específico
+  const sanitized = input.fileName.replace(/[^\w.\-]/g, '_').slice(0, 80)
+  const itemId = input.itemId || null
   const path = itemId
-    ? `${manutencaoId}/${itemId}/${Date.now()}-${sanitized}`
-    : `${manutencaoId}/${Date.now()}-${sanitized}`
+    ? `${input.manutencaoId}/${itemId}/${Date.now()}-${sanitized}`
+    : `${input.manutencaoId}/${Date.now()}-${sanitized}`
 
-  const { error: upErr } = await supabase.storage
+  const { data, error } = await supabase.storage
     .from('manutencao-anexos')
-    .upload(path, arrayBuffer, {
-      contentType: file.type || 'application/octet-stream',
-      upsert: false,
-    })
-  if (upErr) throw new Error(`Falha no upload: ${upErr.message}`)
+    .createSignedUploadUrl(path)
+  if (error || !data) throw new Error(error?.message ?? 'Falha ao preparar upload.')
+  return { bucket: 'manutencao-anexos', path: data.path, token: data.token }
+}
 
+/**
+ * Registra o anexo na tabela depois que o browser concluiu o upload direto.
+ */
+export async function registrarManutencaoAnexo(input: {
+  manutencaoId: string
+  itemId?: string | null
+  path: string
+  fileName: string
+  fileType: ManutencaoAnexo['file_type']
+  sizeBytes: number
+}): Promise<ManutencaoAnexo> {
+  const { supabase, user } = await requireUser()
   const { data, error } = await supabase
     .from('manutencao_anexos')
     .insert({
-      manutencao_id: manutencaoId,
-      item_id: itemId,
-      file_path: path,
-      file_name: file.name,
-      file_type: tipo,
-      legenda,
-      size_bytes: file.size,
+      manutencao_id: input.manutencaoId,
+      item_id: input.itemId || null,
+      file_path: input.path,
+      file_name: input.fileName,
+      file_type: input.fileType,
+      size_bytes: input.sizeBytes,
       uploaded_por: user.id,
     })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
-
-  revalidateManutencoes(manutencaoId)
+  revalidateManutencoes(input.manutencaoId)
   return data as ManutencaoAnexo
 }
 

@@ -47,3 +47,5 @@ next-env.d.ts
 
 # dados de migração (one-shot, contêm informações de clientes/colaboradores)
 /scripts/data/
+# imports do Monday (xlsx + scripts/SQL gerados — dados reais de clientes/imóveis)
+/imports/

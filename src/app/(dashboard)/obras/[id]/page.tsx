@@ -488,8 +488,8 @@ function GastosTab({
           )
         })()
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-2xl border border-[var(--line)] bg-white">
+          <table className="w-full min-w-[680px]">
             <thead className="bg-[var(--paper)]">
               <tr>
                 <SortableHeader label="Data"         column="data"           align="left"  className="px-4" sortColumn={sortColumn} sortDir={sortDir} onSort={onSort} />

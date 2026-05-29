@@ -396,8 +396,8 @@ function ItensSection({
           Sem itens ainda. Adicione ao menos um pra que o fornecedor saiba o que cotar.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-[var(--line)]">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
+          <table className="w-full min-w-[560px]">
             <thead className="bg-[var(--paper)]">
               <tr className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">
                 <th className="w-10 px-3 py-2.5 text-left">#</th>

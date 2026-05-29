@@ -464,7 +464,7 @@ export default function ClientesPage() {
                               aria-label="Ações do cliente"
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 cursor-pointer rounded-xl text-[var(--ink-faint)] opacity-0 transition-opacity hover:bg-[var(--paper)] hover:text-[var(--ink)] group-hover:opacity-100 data-[popup-open]:opacity-100"
+                              className="h-9 w-9 cursor-pointer rounded-xl text-[var(--ink-faint)] opacity-100 transition-opacity hover:bg-[var(--paper)] hover:text-[var(--ink)] data-[popup-open]:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>

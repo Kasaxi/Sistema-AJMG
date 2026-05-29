@@ -148,3 +148,26 @@
     color: var(--ink);
   }
 }
+
+@layer utilities {
+  /* Scrollbar fina e translúcida — pensada pro sidebar escuro (thumb branco suave).
+     Substitui a scrollbar nativa grossa do Windows que destoava do tema. */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.18);
+    border-radius: 9999px;
+  }
+  .scrollbar-slim:hover::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.32);
+  }
+}

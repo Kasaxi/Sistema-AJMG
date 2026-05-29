@@ -7,11 +7,13 @@ import {
 } from 'lucide-react'
 import {
   listManutencaoAnexos,
-  uploadManutencaoAnexo,
+  criarUploadUrlManutencaoAnexo,
+  registrarManutencaoAnexo,
   removerManutencaoAnexo,
   getAnexoSignedUrl,
 } from '@/app/actions/manutencoes-actions'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { uploadToSignedUrl, fileTypeManutencaoFromMime } from '@/lib/storage-upload'
 import type { ManutencaoAnexo } from '@/types/manutencoes'
 import { cn } from '@/lib/utils'
 
@@ -64,14 +66,26 @@ export function AnexosItem({ manutencaoId, itemId, podeEditar }: Props) {
   async function onArquivoEscolhido(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 100 * 1024 * 1024) {
+      setErro('Arquivo maior que 100 MB.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
     setErro(null); setUploading(true)
     try {
-      const fd = new FormData()
-      fd.append('manutencao_id', manutencaoId)
-      fd.append('item_id', itemId)
-      fd.append('file_type', file.type.startsWith('image/') ? 'FOTO_DEPOIS' : file.type.startsWith('video/') ? 'OUTRO' : 'DOCUMENTO')
-      fd.append('file', file)
-      const novo = await uploadManutencaoAnexo(fd)
+      // 1. Servidor assina a permissão; 2. browser sobe direto; 3. registra metadata
+      const { bucket, path, token } = await criarUploadUrlManutencaoAnexo({
+        manutencaoId, itemId, fileName: file.name,
+      })
+      await uploadToSignedUrl(bucket, path, token, file)
+      const novo = await registrarManutencaoAnexo({
+        manutencaoId,
+        itemId,
+        path,
+        fileName: file.name,
+        fileType: fileTypeManutencaoFromMime(file.type),
+        sizeBytes: file.size,
+      })
       setAnexos(prev => [novo, ...prev])
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Falha no upload.')

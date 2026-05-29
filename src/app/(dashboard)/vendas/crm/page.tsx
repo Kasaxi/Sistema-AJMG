@@ -5,9 +5,10 @@ import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import { Plus, MoreHorizontal, Edit2, Phone, RefreshCw } from 'lucide-react'
+import { Plus, MoreHorizontal, Edit2, Phone, RefreshCw, ArrowRight } from 'lucide-react'
 import { ClienteForm } from '@/components/vendas/cliente-form'
 import { getClientes, getVendedores, getEtapasFunil, updateCliente } from '@/app/actions/vendas-actions'
 import type { Cliente, Vendedor, EtapaFunil } from '@/types/vendas'
@@ -41,8 +42,9 @@ export default function CRMPage() {
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
+    // Silent: não pisca skeleton — usado ao fechar o modal pra não esvaziar a tela.
+    if (!opts?.silent) setLoading(true)
     try {
       const [etapasData, clientesData, vendedoresData] = await Promise.all([
         getEtapasFunil(),
@@ -53,7 +55,7 @@ export default function CRMPage() {
       setClientes(clientesData.clientes)
       setVendedores(vendedoresData)
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
@@ -78,7 +80,7 @@ export default function CRMPage() {
   function closeForm() {
     setFormOpen(false)
     setEditingCliente(null)
-    loadData()
+    loadData({ silent: true })
   }
 
   // Drag-drop muda APENAS o status (CRM/funil). status_novo (avaliação) é domínio diferente.
@@ -95,11 +97,11 @@ export default function CRMPage() {
       <Header
         eyebrow="Vendas"
         title="CRM — Funil de Vendas"
-        subtitle="Arraste os cartões para mover entre etapas"
+        subtitle="Arraste os cartões ou use o ⋮ para mover entre etapas"
         actions={
           <Button
             variant="outline"
-            onClick={loadData}
+            onClick={() => loadData()}
             disabled={loading}
             aria-label="Atualizar"
             className="h-11 cursor-pointer rounded-2xl border-[var(--line)] px-4"
@@ -178,43 +180,62 @@ export default function CRMPage() {
                       <div
                         key={c.id}
                         draggable
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Abrir ${c.nome}`}
                         onDragStart={e => { e.dataTransfer.setData('clienteId', c.id); setDragging(c.id) }}
                         onDragEnd={() => setDragging(null)}
+                        onClick={() => openEdit(c)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEdit(c) }
+                        }}
                         className={cn(
-                          'cursor-grab rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm transition-all duration-200 active:cursor-grabbing',
-                          'hover:-translate-y-0.5 hover:border-[var(--brand-bright)]/30 hover:shadow-md',
+                          'cursor-pointer rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 shadow-sm transition-all duration-200',
+                          'hover:-translate-y-0.5 hover:border-[var(--brand-bright)]/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-bright)]/40 lg:cursor-grab lg:active:cursor-grabbing',
                           dragging === c.id && 'rotate-1 opacity-50'
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-[var(--ink)]">{c.nome}</p>
-                            <a
-                              href={`https://wa.me/55${c.telefone_whatsapp.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-0.5 flex items-center gap-1 text-xs text-[var(--ink-faint)] transition-colors hover:text-[var(--brand-bright)]"
-                              onClick={e => e.stopPropagation()}
-                            >
+                            <span className="mt-0.5 flex items-center gap-1 text-xs text-[var(--ink-faint)]">
                               <Phone className="h-3 w-3" />
                               {formatPhone(c.telefone_whatsapp)}
-                            </a>
+                            </span>
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger render={
-                              <Button aria-label="Ações do cliente" variant="ghost" size="icon" className="h-7 w-7 shrink-0 cursor-pointer rounded-lg text-[var(--ink-faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]">
+                              <Button
+                                aria-label="Ações do cliente"
+                                variant="ghost"
+                                size="icon"
+                                onClick={e => e.stopPropagation()}
+                                className="h-7 w-7 shrink-0 cursor-pointer rounded-lg text-[var(--ink-faint)] hover:bg-[var(--paper)] hover:text-[var(--ink)]"
+                              >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             } />
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="min-w-48">
                               <DropdownMenuItem onClick={() => openEdit(c)}>
-                                <Edit2 className="mr-2 h-4 w-4" /> Editar
+                                <Edit2 className="mr-2 h-4 w-4" /> Ver / editar
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => window.open(`https://wa.me/55${c.telefone_whatsapp.replace(/\D/g, '')}`, '_blank')}
                               >
                                 <Phone className="mr-2 h-4 w-4" /> WhatsApp
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Mover para</DropdownMenuLabel>
+                              {etapas
+                                .filter(e => e.chave !== (c.status ?? 'NOVO_LEAD'))
+                                .map(e => (
+                                  <DropdownMenuItem
+                                    key={e.id}
+                                    onClick={() => handleDrop(e.chave, c.id)}
+                                  >
+                                    <ArrowRight className="mr-2 h-4 w-4" /> {e.nome}
+                                  </DropdownMenuItem>
+                                ))}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
